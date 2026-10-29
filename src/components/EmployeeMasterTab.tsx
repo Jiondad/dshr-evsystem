@@ -7,9 +7,9 @@ interface Props {
   year: number;
   onYearChange?: (newYear: number) => void;
   employees: EmployeeSnapshot[];
-  onCellChange: (empNo: string, field: keyof EmployeeSnapshot, val: any) => void;
+  onCellChange: (index: number, field: keyof EmployeeSnapshot, val: any) => void;
   onAddRow: () => void;
-  onDeleteRow: (empNo: string) => void;
+  onDeleteRow: (index: number, empNo: string) => void;
   onCopyPrevYear: () => void;
   onSave: () => void;
 }
@@ -21,7 +21,6 @@ export const EmployeeMasterTab: React.FC<Props> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // CSV 파일 직접 파싱하여 Supabase DB 및 화면에 일괄 적재
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -39,10 +38,9 @@ export const EmployeeMasterTab: React.FC<Props> = ({
         }
 
         const newParsed: EmployeeSnapshot[] = [];
-        // 첫 줄(헤더)을 제외하고 데이터 파싱
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ''));
-          if (!cols[0] || !cols[1]) continue; // 사번, 성명 필수
+          if (!cols[0] || !cols[1]) continue;
 
           newParsed.push({
             snapshot_year: year,
@@ -91,11 +89,11 @@ export const EmployeeMasterTab: React.FC<Props> = ({
     <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-3 border-b pb-4">
         <div className="flex items-center gap-3">
-          {/* 마스터 화면 전용 연도 선택기 */}
           <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 shadow-inner">
             <button
               onClick={() => onYearChange && onYearChange(year - 1)}
               className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition"
+              title="이전 연도"
             >
               <i className="fa-solid fa-chevron-left text-xs" />
             </button>
@@ -106,6 +104,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
             <button
               onClick={() => onYearChange && onYearChange(year + 1)}
               className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition"
+              title="다음 연도"
             >
               <i className="fa-solid fa-chevron-right text-xs" />
             </button>
@@ -114,7 +113,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
           <div>
             <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
               <i className="fa-solid fa-file-excel text-emerald-600" />
-              {year}년 12월 31일 기준 사원 마스터 스냅샷 ({employees.length}명)
+              {year}년 12월 31일 기준 사원 마스터 ({employees.length}명)
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               퇴사자는 평가 대상이 아니므로 행 삭제로 정리하며, 표 안의 셀을 엑셀처럼 직접 클릭하여 수정합니다.
@@ -123,7 +122,6 @@ export const EmployeeMasterTab: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* CSV 파일 일괄 업로드 숨김 인풋 */}
           <input
             type="file"
             ref={fileInputRef}
@@ -133,17 +131,17 @@ export const EmployeeMasterTab: React.FC<Props> = ({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-900 text-white flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-900 text-white flex items-center gap-1.5 shadow-sm transition"
           >
             <i className="fa-solid fa-file-arrow-up text-[11px] text-emerald-400" /> CSV 일괄 업로드
           </button>
-          <button onClick={onCopyPrevYear} className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border flex items-center gap-1.5">
+          <button onClick={onCopyPrevYear} className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border flex items-center gap-1.5 transition">
             <i className="fa-solid fa-clone text-[11px]" /> {year === 2024 ? "2025년도 명부 복사" : `${year - 1}년도 명부 복사`}
           </button>
-          <button onClick={onAddRow} className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm">
+          <button onClick={onAddRow} className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition">
             <i className="fa-solid fa-plus text-[11px]" /> 행 추가
           </button>
-          <button onClick={onSave} className="px-4 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm">
+          <button onClick={onSave} className="px-4 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm transition">
             <i className="fa-solid fa-floppy-disk text-[11px]" /> 사원마스터 저장
           </button>
         </div>
@@ -154,7 +152,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
           <thead className="bg-slate-100 text-slate-700 font-bold border-b">
             <tr>
               <th className="p-2.5 text-center w-12">No</th>
-              <th className="p-2.5 w-24">사번</th>
+              <th className="p-2.5 w-28">사번</th>
               <th className="p-2.5 w-24">성명</th>
               <th className="p-2.5 w-28">부서</th>
               <th className="p-2.5 w-24">직위</th>
@@ -163,98 +161,113 @@ export const EmployeeMasterTab: React.FC<Props> = ({
               <th className="p-2.5 text-center w-28">입사일자</th>
               <th className="p-2.5 text-center w-28">최근승진일</th>
               <th className="p-2.5">비고 / 담당직무</th>
-              <th className="p-2.5 text-center w-14">삭제</th>
+              <th className="p-2.5 text-center w-16 text-rose-600">삭제</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {employees.map((emp, idx) => (
-              <tr key={emp.emp_no} className="hover:bg-blue-50/20">
-                <td className="p-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                <td className="p-1.5">
-                  <input
-                    type="text"
-                    value={emp.emp_no}
-                    onChange={e => onCellChange(emp.emp_no, "emp_no", e.target.value)}
-                    className="w-full px-1 py-0.5 font-mono text-slate-700 bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5">
-                  <input
-                    type="text"
-                    value={emp.name}
-                    onChange={e => onCellChange(emp.emp_no, "name", e.target.value)}
-                    className="w-full px-1 py-0.5 font-bold text-slate-900 bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5">
-                  <select
-                    value={emp.dept}
-                    onChange={e => onCellChange(emp.emp_no, "dept", e.target.value)}
-                    className="w-full px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none"
-                  >
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </td>
-                <td className="p-1.5">
-                  <select
-                    value={emp.position}
-                    onChange={e => onCellChange(emp.emp_no, "position", e.target.value)}
-                    className="w-full px-1 py-0.5 font-semibold bg-transparent focus:bg-white focus:outline-none"
-                  >
-                    {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </td>
-                <td className="p-1.5 text-center">
-                  <select
-                    value={emp.status}
-                    onChange={e => onCellChange(emp.emp_no, "status", e.target.value as StatusType)}
-                    className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                      emp.status === "재직" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td className="p-1.5 text-center">
-                  <input
-                    type="date"
-                    value={emp.birth_date || ""}
-                    onChange={e => onCellChange(emp.emp_no, "birth_date", e.target.value)}
-                    className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5 text-center">
-                  <input
-                    type="date"
-                    value={emp.hire_date || ""}
-                    onChange={e => onCellChange(emp.emp_no, "hire_date", e.target.value)}
-                    className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5 text-center">
-                  <input
-                    type="date"
-                    value={emp.promo_date || ""}
-                    onChange={e => onCellChange(emp.emp_no, "promo_date", e.target.value)}
-                    className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5">
-                  <input
-                    type="text"
-                    value={emp.remarks || ""}
-                    placeholder="비고 / 담당직무"
-                    onChange={e => onCellChange(emp.emp_no, "remarks", e.target.value)}
-                    className="w-full px-1 py-0.5 text-slate-600 bg-transparent focus:bg-white focus:outline-none"
-                  />
-                </td>
-                <td className="p-1.5 text-center">
-                  <button onClick={() => onDeleteRow(emp.emp_no)} className="text-slate-300 hover:text-rose-600">
-                    <i className="fa-regular fa-trash-can" />
-                  </button>
+            {employees.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="py-12 text-center text-slate-400 font-medium">
+                  등록된 사원 마스터 데이터가 없습니다. [행 추가] 또는 [CSV 일괄 업로드]를 이용해주세요.
                 </td>
               </tr>
-            ))}
+            ) : (
+              employees.map((emp, idx) => (
+                <tr key={`${emp.snapshot_year}-${idx}`} className="hover:bg-blue-50/20 transition">
+                  <td className="p-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                  <td className="p-1.5">
+                    {/* 사번을 자유롭게 수정 가능하도록 완전 개방 */}
+                    <input
+                      type="text"
+                      value={emp.emp_no || ""}
+                      placeholder="사번 입력"
+                      onChange={e => onCellChange(idx, "emp_no", e.target.value)}
+                      className="w-full px-2 py-1 font-mono text-xs text-slate-800 bg-white border border-slate-200 rounded focus:border-blue-500 focus:outline-none"
+                    />
+                  </td>
+                  <td className="p-1.5">
+                    <input
+                      type="text"
+                      value={emp.name || ""}
+                      placeholder="성명"
+                      onChange={e => onCellChange(idx, "name", e.target.value)}
+                      className="w-full px-1.5 py-0.5 font-bold text-slate-900 bg-transparent focus:bg-white focus:outline-none rounded"
+                    />
+                  </td>
+                  <td className="p-1.5">
+                    <select
+                      value={emp.dept}
+                      onChange={e => onCellChange(idx, "dept", e.target.value)}
+                      className="w-full px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none rounded"
+                    >
+                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </td>
+                  <td className="p-1.5">
+                    <select
+                      value={emp.position}
+                      onChange={e => onCellChange(idx, "position", e.target.value)}
+                      className="w-full px-1 py-0.5 font-semibold bg-transparent focus:bg-white focus:outline-none rounded"
+                    >
+                      {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <select
+                      value={emp.status}
+                      onChange={e => onCellChange(idx, "status", e.target.value as StatusType)}
+                      className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                        emp.status === "재직" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <input
+                      type="date"
+                      value={emp.birth_date || ""}
+                      onChange={e => onCellChange(idx, "birth_date", e.target.value)}
+                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                    />
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <input
+                      type="date"
+                      value={emp.hire_date || ""}
+                      onChange={e => onCellChange(idx, "hire_date", e.target.value)}
+                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                    />
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <input
+                      type="date"
+                      value={emp.promo_date || ""}
+                      onChange={e => onCellChange(idx, "promo_date", e.target.value)}
+                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                    />
+                  </td>
+                  <td className="p-1.5">
+                    <input
+                      type="text"
+                      value={emp.remarks || ""}
+                      placeholder="비고 / 담당직무"
+                      onChange={e => onCellChange(idx, "remarks", e.target.value)}
+                      className="w-full px-1 py-0.5 text-slate-600 bg-transparent focus:bg-white focus:outline-none rounded"
+                    />
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <button
+                      onClick={() => onDeleteRow(idx, emp.emp_no)}
+                      className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      title="행 삭제"
+                    >
+                      <i className="fa-regular fa-trash-can text-sm" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
