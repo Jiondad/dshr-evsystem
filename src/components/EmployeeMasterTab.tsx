@@ -7,9 +7,9 @@ interface Props {
   year: number;
   onYearChange?: (newYear: number) => void;
   employees: EmployeeSnapshot[];
-  onCellChange: (index: number, field: keyof EmployeeSnapshot, val: any) => void;
+  onCellChange: (emp: EmployeeSnapshot, field: keyof EmployeeSnapshot, val: any) => void;
   onAddRow: () => void;
-  onDeleteRow: (index: number, empNo: string) => void;
+  onDeleteRow: (emp: EmployeeSnapshot) => void;
   onCopyPrevYear: () => void;
   onSave: () => void;
 }
@@ -173,15 +173,14 @@ export const EmployeeMasterTab: React.FC<Props> = ({
               </tr>
             ) : (
               employees.map((emp, idx) => (
-                <tr key={`${emp.snapshot_year}-${idx}`} className="hover:bg-blue-50/20 transition">
+                <tr key={`${emp.snapshot_year}-${emp.emp_no || idx}`} className="hover:bg-blue-50/20 transition">
                   <td className="p-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                   <td className="p-1.5">
-                    {/* 사번을 자유롭게 수정 가능하도록 완전 개방 */}
                     <input
                       type="text"
                       value={emp.emp_no || ""}
                       placeholder="사번 입력"
-                      onChange={e => onCellChange(idx, "emp_no", e.target.value)}
+                      onChange={e => onCellChange(emp, "emp_no", e.target.value)}
                       className="w-full px-2 py-1 font-mono text-xs text-slate-800 bg-white border border-slate-200 rounded focus:border-blue-500 focus:outline-none"
                     />
                   </td>
@@ -190,14 +189,14 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                       type="text"
                       value={emp.name || ""}
                       placeholder="성명"
-                      onChange={e => onCellChange(idx, "name", e.target.value)}
+                      onChange={e => onCellChange(emp, "name", e.target.value)}
                       className="w-full px-1.5 py-0.5 font-bold text-slate-900 bg-transparent focus:bg-white focus:outline-none rounded"
                     />
                   </td>
                   <td className="p-1.5">
                     <select
                       value={emp.dept}
-                      onChange={e => onCellChange(idx, "dept", e.target.value)}
+                      onChange={e => onCellChange(emp, "dept", e.target.value)}
                       className="w-full px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none rounded"
                     >
                       {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -206,7 +205,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                   <td className="p-1.5">
                     <select
                       value={emp.position}
-                      onChange={e => onCellChange(idx, "position", e.target.value)}
+                      onChange={e => onCellChange(emp, "position", e.target.value)}
                       className="w-full px-1 py-0.5 font-semibold bg-transparent focus:bg-white focus:outline-none rounded"
                     >
                       {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -215,7 +214,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                   <td className="p-1.5 text-center">
                     <select
                       value={emp.status}
-                      onChange={e => onCellChange(idx, "status", e.target.value as StatusType)}
+                      onChange={e => onCellChange(emp, "status", e.target.value as StatusType)}
                       className={`px-2 py-0.5 rounded font-bold text-[11px] ${
                         emp.status === "재직" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
                       }`}
@@ -227,7 +226,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                     <input
                       type="date"
                       value={emp.birth_date || ""}
-                      onChange={e => onCellChange(idx, "birth_date", e.target.value)}
+                      onChange={e => onCellChange(emp, "birth_date", e.target.value)}
                       className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
                     />
                   </td>
@@ -235,7 +234,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                     <input
                       type="date"
                       value={emp.hire_date || ""}
-                      onChange={e => onCellChange(idx, "hire_date", e.target.value)}
+                      onChange={e => onCellChange(emp, "hire_date", e.target.value)}
                       className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
                     />
                   </td>
@@ -243,7 +242,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                     <input
                       type="date"
                       value={emp.promo_date || ""}
-                      onChange={e => onCellChange(idx, "promo_date", e.target.value)}
+                      onChange={e => onCellChange(emp, "promo_date", e.target.value)}
                       className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
                     />
                   </td>
@@ -252,15 +251,15 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                       type="text"
                       value={emp.remarks || ""}
                       placeholder="비고 / 담당직무"
-                      onChange={e => onCellChange(idx, "remarks", e.target.value)}
+                      onChange={e => onCellChange(emp, "remarks", e.target.value)}
                       className="w-full px-1 py-0.5 text-slate-600 bg-transparent focus:bg-white focus:outline-none rounded"
                     />
                   </td>
                   <td className="p-1.5 text-center">
                     <button
-                      onClick={() => onDeleteRow(idx, emp.emp_no)}
+                      onClick={() => onDeleteRow(emp)}
                       className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                      title="행 삭제"
+                      title={`${emp.name || '사원'} 삭제`}
                     >
                       <i className="fa-regular fa-trash-can text-sm" />
                     </button>
