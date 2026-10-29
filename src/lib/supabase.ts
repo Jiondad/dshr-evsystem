@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // 고정 기본 연결 정보 (어느 PC에서 접속하든 자동 연결)
 const DEFAULT_SUPABASE_URL = "https://zcabxhwgorzhnxkdqcbz.supabase.co"; // 사용 중이신 Supabase Project URL
-const DEFAULT_SUPABASE_ANON_KEY = "여기에_사용중이신_anon_public_key_입력"; // 사용 중이신 Anon Key
+const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjYWJ4aHdnb3J6aG54a2RxY2J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjYwMTgsImV4cCI6MjEwODgwMjAxOH0.tr4zdom-ThXqZu19GEhlUlDh93p43EXgKi1WekIwp4k"; // 사용 중이신 Anon Key
 
 let supabaseInstance: SupabaseClient | null = null;
 
