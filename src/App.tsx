@@ -232,11 +232,15 @@ export default function App() {
 
         <div className="flex items-center gap-2.5">
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
-            <button onClick={() => setYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">></button>
+            <button onClick={() => setYear(y => y - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
+              <i className="fa-solid fa-chevron-left text-xs" />
+            </button>
             <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5">
               <i className="fa-regular fa-calendar-check" />{year}년 스냅샷
             </span>
-            <button onClick={() => setYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">></button>
+            <button onClick={() => setYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
+              <i className="fa-solid fa-chevron-right text-xs" />
+            </button>
           </div>
 
           <div className="flex bg-[#1e293b] p-1 rounded-xl border border-slate-700/80">
