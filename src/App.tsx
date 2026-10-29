@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { EmployeeSnapshot, EvalStore, SnapshotStore, Grade } from './types/hr';
-import { DEPARTMENTS, DEFAULT_SNAPSHOT_2025, DEFAULT_SEED_2025, finalScore, pointsFor, sortByDeptAndPosition } from './lib/constants';
+import { DEPARTMENTS, finalScore, pointsFor, sortByDeptAndPosition } from './lib/constants';
 import { getSupabase } from './lib/supabase';
 import { DashboardCards } from './components/DashboardCards';
 import { EvalInputTab } from './components/EvalInputTab';
@@ -14,83 +14,74 @@ export default function App() {
   const [tab, setTab] = useState<"input" | "promo" | "snapshot_master">("promo");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [includeRetired, setIncludeRetired] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const [isWeightGuideOpen, setIsWeightGuideOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [sbConnected, setSbConnected] = useState(() => !!getSupabase());
 
-  const [snapshotStore, setSnapshotStore] = useState<SnapshotStore>(() => {
-    const saved = localStorage.getItem("ds_snapshot_store_v1");
-    if (saved) {
-      try { return JSON.parse(saved); } catch(e){}
-    }
-    return { 2025: DEFAULT_SNAPSHOT_2025 };
-  });
+  const [snapshotStore, setSnapshotStore] = useState<SnapshotStore>({});
+  const [evalStore, setEvalStore] = useState<EvalStore>({});
 
-  const [evalStore, setEvalStore] = useState<EvalStore>(() => {
-    const saved = localStorage.getItem("ds_eval_store_v10");
-    if (saved) {
-      try { return JSON.parse(saved); } catch(e){}
-    }
-    return { 2025: DEFAULT_SEED_2025 };
-  });
-
-  // DB에서 전체 연도 사원 명부 및 평가 데이터를 일괄 프리로드 (다른 PC 접속 시 완벽 동기화)
+  // DB에서 전체 연도 데이터 일괄 로드 (어느 자리에서든 100% 실시간 DB 원장 동기화)
   const loadAllDataFromDB = async () => {
     const sb = getSupabase();
-    if (!sb) return;
-
-    // 1. 전체 사원 스냅샷 조회
-    const { data: empData, error: empErr } = await sb
-      .from("employee_snapshots")
-      .select("*")
-      .order("emp_no");
-
-    if (!empErr && empData) {
-      const groupedSnap: SnapshotStore = {};
-      empData.forEach((e: any) => {
-        const y = e.snapshot_year;
-        if (!groupedSnap[y]) groupedSnap[y] = [];
-        groupedSnap[y].push({
-          ...e,
-          _rowId: `${e.snapshot_year}_${e.emp_no}`
-        });
-      });
-
-      setSnapshotStore(prev => {
-        const merged = { ...prev, ...groupedSnap };
-        localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(merged));
-        return merged;
-      });
+    if (!sb) {
+      setIsLoading(false);
+      return;
     }
 
-    // 2. 전체 평가 데이터 조회 (과거 3개년 승진 포인트 즉시 연동)
-    const { data: evalData, error: evalErr } = await sb
-      .from("annual_evaluations")
-      .select("*");
+    try {
+      setIsLoading(true);
 
-    if (!evalErr && evalData) {
-      const groupedEval: EvalStore = {};
-      evalData.forEach((r: any) => {
-        const y = r.eval_year;
-        if (!groupedEval[y]) groupedEval[y] = {};
-        groupedEval[y][r.emp_no] = {
-          competency: r.comp_score !== null ? r.comp_score : "",
-          performance: r.perf_score !== null ? r.perf_score : "",
-          selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
-          mentoring: r.leadership_score !== null ? r.leadership_score : "",
-          adjust: r.adj_score !== null ? r.adj_score : "",
-          adjustReason: r.adj_reason || "",
-          grade: r.final_grade || "",
-          note: r.remarks || ""
-        };
-      });
+      // 1. 전체 사원 스냅샷 조회
+      const { data: empData, error: empErr } = await sb
+        .from("employee_snapshots")
+        .select("*")
+        .order("emp_no");
 
-      setEvalStore(prev => {
-        const merged = { ...prev, ...groupedEval };
-        localStorage.setItem("ds_eval_store_v10", JSON.stringify(merged));
-        return merged;
-      });
+      if (!empErr && empData) {
+        const groupedSnap: SnapshotStore = {};
+        empData.forEach((e: any) => {
+          const y = e.snapshot_year;
+          if (!groupedSnap[y]) groupedSnap[y] = [];
+          groupedSnap[y].push({
+            ...e,
+            _rowId: `${e.snapshot_year}_${e.emp_no}`
+          });
+        });
+        setSnapshotStore(groupedSnap);
+        localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(groupedSnap));
+      }
+
+      // 2. 전체 평가 데이터 조회
+      const { data: evalData, error: evalErr } = await sb
+        .from("annual_evaluations")
+        .select("*");
+
+      if (!evalErr && evalData) {
+        const groupedEval: EvalStore = {};
+        evalData.forEach((r: any) => {
+          const y = r.eval_year;
+          if (!groupedEval[y]) groupedEval[y] = {};
+          groupedEval[y][r.emp_no] = {
+            competency: r.comp_score !== null ? r.comp_score : "",
+            performance: r.perf_score !== null ? r.perf_score : "",
+            selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
+            mentoring: r.leadership_score !== null ? r.leadership_score : "",
+            adjust: r.adj_score !== null ? r.adj_score : "",
+            adjustReason: r.adj_reason || "",
+            grade: r.final_grade || "",
+            note: r.remarks || ""
+          };
+        });
+        setEvalStore(groupedEval);
+        localStorage.setItem("ds_eval_store_v10", JSON.stringify(groupedEval));
+      }
+    } catch (err) {
+      console.error("데이터 로드 실패:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -102,7 +93,6 @@ export default function App() {
     setYear(targetYear);
   };
 
-  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 우선 정렬 사원 목록
   const currentYearEmployees = useMemo(() => {
     const rawList = snapshotStore[year] || [];
     return [...rawList].sort(sortByDeptAndPosition);
@@ -248,7 +238,7 @@ export default function App() {
       alert("저장 실패: " + error.message);
     } else {
       alert(`${year}년도 사원마스터(${cleanData.length}명)가 Supabase에 영구 보관되었습니다.`);
-      loadAllDataFromDB();
+      await loadAllDataFromDB();
     }
   };
 
@@ -277,10 +267,11 @@ export default function App() {
     });
 
     const { error } = await sb.from("annual_evaluations").upsert(records, { onConflict: "eval_year,emp_no" });
-    if (error) alert("저장 실패: " + error.message);
-    else {
+    if (error) {
+      alert("저장 실패: " + error.message);
+    } else {
       alert(`${year}년도 평가데이터(${records.length}명)가 Supabase에 10년 보존 원장으로 기록되었습니다.`);
-      loadAllDataFromDB();
+      await loadAllDataFromDB();
     }
   };
 
@@ -365,82 +356,91 @@ export default function App() {
         </div>
       </header>
 
-      {tab === "input" && (
-        <div className="space-y-5">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
-                <i className="fa-solid fa-users text-[11px]" /> 부서 필터
-              </span>
-              <button
-                onClick={() => setDept("전체")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                전체 부서 ({filteredEmps.length})
-              </button>
-              {DEPARTMENTS.map(d => {
-                const count = currentYearEmployees.filter(e => (includeRetired ? true : e.status === '재직') && e.dept === d).length;
-                return (
-                  <button
-                    key={d} onClick={() => setDept(d)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >
-                    {d} ({count})
-                  </button>
-                );
-              })}
-              <label className="ml-3 flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer">
-                <input
-                  type="checkbox" checked={includeRetired} onChange={e => setIncludeRetired(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
-                />
-                퇴사자 포함 조회
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="text" placeholder="사번, 성명, 직위 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                className="pl-3 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl w-48 bg-slate-50 focus:bg-white"
-              />
-              <button
-                onClick={() => setIsWeightGuideOpen(true)}
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 border"
-              >
-                <i className="fa-solid fa-scale-balanced text-[11px]" /> 가중치 산출표
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5"
-              >
-                <i className="fa-solid fa-file-excel text-[11px]" /> CSV 내보내기
-              </button>
-              <button
-                onClick={handleSaveAllEvals}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm"
-              >
-                <i className="fa-solid fa-cloud-arrow-up text-[11px]" /> 평가데이터 저장
-              </button>
-            </div>
-          </div>
-
-          <DashboardCards year={year} dept={dept} totalCount={totalCount} gradedTotal={gradedTotal} counts={counts} getPct={getPct} />
-          <EvalInputTab year={year} dept={dept} employees={filteredEmps} evaluations={currentYearEvals} onCellChange={handleEvalCellChange} />
+      {isLoading ? (
+        <div className="bg-white rounded-2xl p-16 text-center border border-slate-200/80 shadow-sm">
+          <i className="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600 mb-3" />
+          <p className="text-sm font-bold text-slate-700">Supabase DB에서 10년치 원장 데이터를 동기화하는 중입니다...</p>
         </div>
-      )}
+      ) : (
+        <>
+          {tab === "input" && (
+            <div className="space-y-5">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
+                    <i className="fa-solid fa-users text-[11px]" /> 부서 필터
+                  </span>
+                  <button
+                    onClick={() => setDept("전체")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    전체 부서 ({filteredEmps.length})
+                  </button>
+                  {DEPARTMENTS.map(d => {
+                    const count = currentYearEmployees.filter(e => (includeRetired ? true : e.status === '재직') && e.dept === d).length;
+                    return (
+                      <button
+                        key={d} onClick={() => setDept(d)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        {d} ({count})
+                      </button>
+                    );
+                  })}
+                  <label className="ml-3 flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer">
+                    <input
+                      type="checkbox" checked={includeRetired} onChange={e => setIncludeRetired(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    퇴사자 포함 조회
+                  </label>
+                </div>
 
-      {tab === "promo" && <PromoMatrixTab year={year} employees={filteredEmps} evalStore={evalStore} />}
-      {tab === "snapshot_master" && (
-        <EmployeeMasterTab
-          year={year}
-          onYearChange={handleYearChange}
-          employees={currentYearEmployees}
-          onCellChange={handleSnapshotCellChange}
-          onAddRow={handleAddRow}
-          onDeleteRow={handleDeleteRow}
-          onCopyPrevYear={handleCopyPrevYear}
-          onSave={handleSaveSnapshotMaster}
-        />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text" placeholder="사번, 성명, 직위 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-3 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl w-48 bg-slate-50 focus:bg-white"
+                  />
+                  <button
+                    onClick={() => setIsWeightGuideOpen(true)}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 border"
+                  >
+                    <i className="fa-solid fa-scale-balanced text-[11px]" /> 가중치 산출표
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-file-excel text-[11px]" /> CSV 내보내기
+                  </button>
+                  <button
+                    onClick={handleSaveAllEvals}
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm"
+                  >
+                    <i className="fa-solid fa-cloud-arrow-up text-[11px]" /> 평가데이터 저장
+                  </button>
+                </div>
+              </div>
+
+              <DashboardCards year={year} dept={dept} totalCount={totalCount} gradedTotal={gradedTotal} counts={counts} getPct={getPct} />
+              <EvalInputTab year={year} dept={dept} employees={filteredEmps} evaluations={currentYearEvals} onCellChange={handleEvalCellChange} />
+            </div>
+          )}
+
+          {tab === "promo" && <PromoMatrixTab year={year} employees={filteredEmps} evalStore={evalStore} />}
+          {tab === "snapshot_master" && (
+            <EmployeeMasterTab
+              year={year}
+              onYearChange={handleYearChange}
+              employees={currentYearEmployees}
+              onCellChange={handleSnapshotCellChange}
+              onAddRow={handleAddRow}
+              onDeleteRow={handleDeleteRow}
+              onCopyPrevYear={handleCopyPrevYear}
+              onSave={handleSaveSnapshotMaster}
+            />
+          )}
+        </>
       )}
 
       <Modals
