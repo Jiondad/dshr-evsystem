@@ -1,6 +1,6 @@
 import { WeightItem, EmployeeSnapshot, EvaluationItem, Grade } from "../types/hr";
 
-// 요청하신 부서 구성 및 정렬 순서 고정: 임원 -> 관리팀 -> 영업팀 -> 생산팀
+// 부서 구성 및 정렬 순서 고정: 임원 -> 관리팀 -> 영업팀 -> 생산팀
 export const DEPARTMENTS = ["임원", "관리팀", "영업팀", "생산팀"] as const;
 
 export const DEPT_ORDER: Record<string, number> = {
@@ -62,6 +62,22 @@ export const GRADE_LIMITS = {
   D: { pct: 5, label: "5%" }
 };
 
+// DashboardCards용 목표 배분 비율 및 권장 인원 산출 함수
+export const GRADE_TARGET_RATE: Record<Grade, number> = {
+  S: 0.05,
+  A: 0.15,
+  B: 0.65,
+  C: 0.10,
+  D: 0.05
+};
+
+export function recommendedCount(total: number, grade: Grade): { rec: number; max: number } {
+  const rate = GRADE_TARGET_RATE[grade];
+  const rec = Math.round(total * rate * 10) / 10;
+  const max = Math.round(total * rate);
+  return { rec, max: Math.max(1, max) };
+}
+
 export const WEIGHT_TABLE: Record<string, WeightItem> = {
   "실장": { competency: 0.30, performance: 0.60, selfDev: 0.10, mentoring: 0.00 },
   "부장": { competency: 0.30, performance: 0.60, selfDev: 0.10, mentoring: 0.00 },
@@ -101,7 +117,7 @@ export function pointsFor(grade?: Grade | ""): number {
   return GRADE_POINTS[grade] || 0;
 }
 
-// 부서 순서 (임원 -> 관리팀 -> 영업팀 -> 생산팀) 우선 정렬 헬퍼
+// 부서 순서 (임원 -> 관리팀 -> 영업팀 -> 생산팀) 및 직위 순서 우선 정렬 헬퍼
 export function sortByDeptAndPosition(a: EmployeeSnapshot, b: EmployeeSnapshot): number {
   const deptA = DEPT_ORDER[a.dept] || 99;
   const deptB = DEPT_ORDER[b.dept] || 99;
@@ -114,41 +130,41 @@ export function sortByDeptAndPosition(a: EmployeeSnapshot, b: EmployeeSnapshot):
   return a.emp_no.localeCompare(b.emp_no);
 }
 
-// 2025년 기본 사원 마스터 스냅샷 (부서 기준 재배치)
+// 2025년 기본 사원 마스터 스냅샷
 export const DEFAULT_SNAPSHOT_2025: EmployeeSnapshot[] = [
   // 관리팀
-  { snapshot_year: 2025, emp_no: "DS-1001", name: "김종현", dept: "관리팀", position: "실장", birth_date: "1975-02-06", hire_date: "2001-03-12", promo_date: "2021-03-01", status: "재직", remarks: "경영총괄" },
-  { snapshot_year: 2025, emp_no: "DS-1002", name: "정승애", dept: "관리팀", position: "과장", birth_date: "1987-08-05", hire_date: "2009-08-06", promo_date: "2022-03-01", status: "재직", remarks: "회계결산" },
-  { snapshot_year: 2025, emp_no: "DS-1003", name: "염지원", dept: "관리팀", position: "과장", birth_date: "1981-08-03", hire_date: "2010-05-25", promo_date: "2023-03-01", status: "재직", remarks: "노무총무" },
-  { snapshot_year: 2025, emp_no: "DS-1004", name: "강현구", dept: "관리팀", position: "사원", birth_date: "1995-01-10", hire_date: "2023-10-01", promo_date: "2024-01-15", status: "재직", remarks: "출납/전표" },
+  { snapshot_year: 2025, emp_no: "010011", name: "김종현", dept: "관리팀", position: "실장", birth_date: "1975-02-06", hire_date: "2001-03-12", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "090005", name: "정승애", dept: "관리팀", position: "과장", birth_date: "1987-08-05", hire_date: "2009-08-06", promo_date: "2025-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "100007", name: "염지원", dept: "관리팀", position: "과장", birth_date: "1981-08-03", hire_date: "2010-05-25", promo_date: "2025-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "230003", name: "강현구", dept: "관리팀", position: "사원", birth_date: "1995-01-10", hire_date: "2023-10-01", promo_date: "2023-10-01", status: "재직", remarks: "" },
 
   // 영업팀
-  { snapshot_year: 2025, emp_no: "DS-2001", name: "이영숙", dept: "영업팀", position: "부장", birth_date: "1980-09-24", hire_date: "2001-08-20", promo_date: "2020-03-01", status: "재직", remarks: "영업총괄" },
-  { snapshot_year: 2025, emp_no: "DS-2002", name: "유도근", dept: "영업팀", position: "부장", birth_date: "1980-11-16", hire_date: "2010-10-11", promo_date: "2021-03-01", status: "재직", remarks: "유통관리" },
-  { snapshot_year: 2025, emp_no: "DS-2003", name: "김영진", dept: "영업팀", position: "부장", birth_date: "1972-10-19", hire_date: "2014-09-01", promo_date: "2021-09-01", status: "재직", remarks: "신규수주" },
-  { snapshot_year: 2025, emp_no: "DS-2004", name: "우국진", dept: "영업팀", position: "차장", birth_date: "1983-09-21", hire_date: "2009-08-24", promo_date: "2022-03-01", status: "재직", remarks: "특수강" },
-  { snapshot_year: 2025, emp_no: "DS-2005", name: "김영민", dept: "영업팀", position: "차장", birth_date: "1984-01-25", hire_date: "2007-12-01", promo_date: "2022-09-01", status: "재직", remarks: "지방영업" },
-  { snapshot_year: 2025, emp_no: "DS-2006", name: "박성진", dept: "영업팀", position: "과장", birth_date: "1983-12-11", hire_date: "2022-04-01", promo_date: "2022-03-01", status: "재직", remarks: "여신채권" },
-  { snapshot_year: 2025, emp_no: "DS-2007", name: "김영수", dept: "영업팀", position: "과장", birth_date: "1984-07-19", hire_date: "2018-04-16", promo_date: "2024-01-01", status: "재직", remarks: "수주견적" },
-  { snapshot_year: 2025, emp_no: "DS-2008", name: "배대호", dept: "영업팀", position: "과장", birth_date: "1982-01-05", hire_date: "2016-06-20", promo_date: "2025-01-01", status: "재직", remarks: "거래처개발" },
-  { snapshot_year: 2025, emp_no: "DS-2009", name: "김상문", dept: "영업팀", position: "대리", birth_date: "1987-03-24", hire_date: "2021-08-01", promo_date: "2023-01-01", status: "재직", remarks: "영업지원" },
+  { snapshot_year: 2025, emp_no: "010023", name: "이영숙", dept: "영업팀", position: "부장", birth_date: "1980-09-24", hire_date: "2001-08-20", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "130031", name: "유도근", dept: "영업팀", position: "부장", birth_date: "1980-11-16", hire_date: "2010-10-11", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "140017", name: "김영진", dept: "영업팀", position: "부장", birth_date: "1972-10-19", hire_date: "2014-09-01", promo_date: "2025-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "090007", name: "우국진", dept: "영업팀", position: "차장", birth_date: "1983-09-21", hire_date: "2009-08-24", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "150019", name: "김영민", dept: "영업팀", position: "차장", birth_date: "1984-01-25", hire_date: "2007-12-01", promo_date: "2023-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "220002", name: "박성진", dept: "영업팀", position: "과장", birth_date: "1983-12-11", hire_date: "2022-04-01", promo_date: "", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "180003", name: "김영수", dept: "영업팀", position: "과장", birth_date: "1984-07-19", hire_date: "2018-04-16", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "220003", name: "박우호", dept: "영업팀", position: "대리", birth_date: "1990-03-09", hire_date: "2018-04-16", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "220009", name: "허아름", dept: "영업팀", position: "사원", birth_date: "1991-12-23", hire_date: "2022-11-07", promo_date: "", status: "재직", remarks: "" },
 
-  // 생산팀 (기존 생산관리팀 인원도 생산팀으로 통합)
-  { snapshot_year: 2025, emp_no: "DS-3001", name: "윤종길", dept: "생산팀", position: "부장", birth_date: "1976-08-27", hire_date: "2018-09-17", promo_date: "2024-01-01", status: "재직", remarks: "공정수급" },
-  { snapshot_year: 2025, emp_no: "DS-3002", name: "김명수", dept: "생산팀", position: "차장", birth_date: "1982-12-08", hire_date: "2013-03-04", promo_date: "2023-01-01", status: "재직", remarks: "계획출하" },
-  { snapshot_year: 2025, emp_no: "DS-3003", name: "백현아", dept: "생산팀", position: "대리", birth_date: "1994-08-16", hire_date: "2019-09-02", promo_date: "2024-01-01", status: "재직", remarks: "원자재관리" },
-  { snapshot_year: 2025, emp_no: "DS-4001", name: "이명재", dept: "생산팀", position: "부장", birth_date: "1977-03-10", hire_date: "2007-06-18", promo_date: "2021-01-01", status: "재직", remarks: "포승공장 총괄" },
-  { snapshot_year: 2025, emp_no: "DS-4002", name: "이상칠", dept: "생산팀", position: "차장", birth_date: "1976-07-28", hire_date: "2008-09-01", promo_date: "2022-01-01", status: "재직", remarks: "설비보전" },
-  { snapshot_year: 2025, emp_no: "DS-4003", name: "김태연", dept: "생산팀", position: "과장", birth_date: "1984-06-25", hire_date: "2015-10-12", promo_date: "2023-01-01", status: "재직", remarks: "슬리터 1라인" },
-  { snapshot_year: 2025, emp_no: "DS-4004", name: "김동주", dept: "생산팀", position: "과장", birth_date: "1986-04-18", hire_date: "2016-04-01", promo_date: "2024-01-01", status: "재직", remarks: "시어 1라인" },
-  { snapshot_year: 2025, emp_no: "DS-4005", name: "박정환", dept: "생산팀", position: "반장", birth_date: "1988-11-09", hire_date: "2017-03-15", promo_date: "2022-01-01", status: "재직", remarks: "슬리터 반장" },
-  { snapshot_year: 2025, emp_no: "DS-4006", name: "정진우", dept: "생산팀", position: "반장", birth_date: "1989-02-23", hire_date: "2018-05-02", promo_date: "2023-01-01", status: "재직", remarks: "시어 반장" },
-  { snapshot_year: 2025, emp_no: "DS-4007", name: "최원석", dept: "생산팀", position: "조장", birth_date: "1992-09-14", hire_date: "2020-07-01", promo_date: "2023-07-01", status: "재직", remarks: "원자재 검수" },
-  { snapshot_year: 2025, emp_no: "DS-4008", name: "한상철", dept: "생산팀", position: "조장", birth_date: "1993-05-30", hire_date: "2021-02-15", promo_date: "2024-01-01", status: "재직", remarks: "포장/출하" },
-  { snapshot_year: 2025, emp_no: "DS-4009", name: "오동훈", dept: "생산팀", position: "기사", birth_date: "1995-12-03", hire_date: "2022-11-01", promo_date: "2022-11-01", status: "재직", remarks: "슬리터 오퍼레이터" },
-  { snapshot_year: 2025, emp_no: "DS-4010", name: "장민수", dept: "생산팀", position: "기사", birth_date: "1996-08-19", hire_date: "2023-04-10", promo_date: "2023-04-10", status: "재직", remarks: "시어 오퍼레이터" },
-  { snapshot_year: 2025, emp_no: "DS-4011", name: "황준혁", dept: "생산팀", position: "기사", birth_date: "1998-03-27", hire_date: "2024-02-01", promo_date: "2024-02-01", status: "재직", remarks: "천장크레인" },
-  { snapshot_year: 2025, emp_no: "DS-4012", name: "강동원", dept: "생산팀", position: "기사", birth_date: "1999-10-15", hire_date: "2024-06-15", promo_date: "2024-06-15", status: "재직", remarks: "코일 야드관리" }
+  // 생산팀
+  { snapshot_year: 2025, emp_no: "140004", name: "임의호", dept: "생산팀", position: "실장", birth_date: "1969-02-15", hire_date: "2014-02-17", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "250002", name: "박명기", dept: "생산팀", position: "차장", birth_date: "1979-11-22", hire_date: "2004-09-13", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "190002", name: "황진석", dept: "생산팀", position: "과장", birth_date: "1978-12-11", hire_date: "2014-07-01", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "190008", name: "정상진", dept: "생산팀", position: "대리", birth_date: "1978-05-16", hire_date: "2019-10-08", promo_date: "", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "080004", name: "이성하", dept: "생산팀", position: "대리", birth_date: "1977-11-03", hire_date: "2008-04-01", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "140010", name: "김성현", dept: "생산팀", position: "대리", birth_date: "1976-02-12", hire_date: "2014-06-30", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "190007", name: "이태섭", dept: "생산팀", position: "대리", birth_date: "1979-11-23", hire_date: "2010-05-03", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "030009", name: "박광순", dept: "생산팀", position: "대리", birth_date: "1979-11-01", hire_date: "2003-05-07", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "200001", name: "이송원", dept: "생산팀", position: "대리", birth_date: "1969-10-15", hire_date: "2014-04-14", promo_date: "2023-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "160010", name: "이규찬", dept: "생산팀", position: "대리", birth_date: "1971-12-29", hire_date: "2003-11-11", promo_date: "2024-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "250004", name: "김영순", dept: "생산팀", position: "주임", birth_date: "1966-01-14", hire_date: "2013-10-14", promo_date: "2023-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "250003", name: "조안근", dept: "생산팀", position: "주임", birth_date: "1974-04-08", hire_date: "2019-06-13", promo_date: "2022-01-01", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "060011", name: "김한일", dept: "생산팀", position: "사원", birth_date: "1968-11-01", hire_date: "2006-11-01", promo_date: "", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "100002", name: "박희강", dept: "생산팀", position: "사원", birth_date: "1974-08-20", hire_date: "2010-01-01", promo_date: "", status: "재직", remarks: "" },
+  { snapshot_year: 2025, emp_no: "200002", name: "박권제", dept: "생산팀", position: "사원", birth_date: "1968-05-18", hire_date: "2020-05-01", promo_date: "", status: "재직", remarks: "" }
 ];
 
 export const DEFAULT_SEED_2025: Record<string, EvaluationItem> = {};
