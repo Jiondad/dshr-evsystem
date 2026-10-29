@@ -9,9 +9,9 @@ import { EmployeeMasterTab } from './components/EmployeeMasterTab';
 import { Modals } from './components/Modals';
 
 export default function App() {
-  const [year, setYear] = useState<number>(2025);
+  const [year, setYear] = useState<number>(2026);
   const [dept, setDept] = useState<string>("전체");
-  const [tab, setTab] = useState<"input" | "promo" | "snapshot_master">("input");
+  const [tab, setTab] = useState<"input" | "promo" | "snapshot_master">("promo");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [includeRetired, setIncludeRetired] = useState<boolean>(false);
 
@@ -35,37 +35,46 @@ export default function App() {
     return { 2025: DEFAULT_SEED_2025 };
   });
 
-  const loadYearDataFromDB = async (targetYear: number) => {
+  // DB에서 전체 연도 사원 명부 및 평가 데이터를 일괄 프리로드 (다른 PC 접속 시 완벽 동기화)
+  const loadAllDataFromDB = async () => {
     const sb = getSupabase();
     if (!sb) return;
 
+    // 1. 전체 사원 스냅샷 조회
     const { data: empData, error: empErr } = await sb
       .from("employee_snapshots")
       .select("*")
-      .eq("snapshot_year", targetYear)
       .order("emp_no");
 
-    if (!empErr && empData && empData.length > 0) {
-      const withRowId = empData.map((e: any) => ({
-        ...e,
-        _rowId: e._rowId || `${e.snapshot_year}_${e.emp_no}_${Math.random()}`
-      }));
+    if (!empErr && empData) {
+      const groupedSnap: SnapshotStore = {};
+      empData.forEach((e: any) => {
+        const y = e.snapshot_year;
+        if (!groupedSnap[y]) groupedSnap[y] = [];
+        groupedSnap[y].push({
+          ...e,
+          _rowId: `${e.snapshot_year}_${e.emp_no}`
+        });
+      });
+
       setSnapshotStore(prev => {
-        const updated = { ...prev, [targetYear]: withRowId };
-        localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
-        return updated;
+        const merged = { ...prev, ...groupedSnap };
+        localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(merged));
+        return merged;
       });
     }
 
+    // 2. 전체 평가 데이터 조회 (과거 3개년 승진 포인트 즉시 연동)
     const { data: evalData, error: evalErr } = await sb
       .from("annual_evaluations")
-      .select("*")
-      .eq("eval_year", targetYear);
+      .select("*");
 
-    if (!evalErr && evalData && evalData.length > 0) {
-      const loaded: Record<string, any> = {};
+    if (!evalErr && evalData) {
+      const groupedEval: EvalStore = {};
       evalData.forEach((r: any) => {
-        loaded[r.emp_no] = {
+        const y = r.eval_year;
+        if (!groupedEval[y]) groupedEval[y] = {};
+        groupedEval[y][r.emp_no] = {
           competency: r.comp_score !== null ? r.comp_score : "",
           performance: r.perf_score !== null ? r.perf_score : "",
           selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
@@ -76,23 +85,24 @@ export default function App() {
           note: r.remarks || ""
         };
       });
+
       setEvalStore(prev => {
-        const updated = { ...prev, [targetYear]: loaded };
-        localStorage.setItem("ds_eval_store_v10", JSON.stringify(updated));
-        return updated;
+        const merged = { ...prev, ...groupedEval };
+        localStorage.setItem("ds_eval_store_v10", JSON.stringify(merged));
+        return merged;
       });
     }
   };
 
+  useEffect(() => {
+    loadAllDataFromDB();
+  }, [sbConnected]);
+
   const handleYearChange = (targetYear: number) => {
     setYear(targetYear);
-    loadYearDataFromDB(targetYear);
   };
 
-  useEffect(() => {
-    loadYearDataFromDB(year);
-  }, [year, sbConnected]);
-
+  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 우선 정렬 사원 목록
   const currentYearEmployees = useMemo(() => {
     const rawList = snapshotStore[year] || [];
     return [...rawList].sort(sortByDeptAndPosition);
@@ -238,7 +248,7 @@ export default function App() {
       alert("저장 실패: " + error.message);
     } else {
       alert(`${year}년도 사원마스터(${cleanData.length}명)가 Supabase에 영구 보관되었습니다.`);
-      loadYearDataFromDB(year);
+      loadAllDataFromDB();
     }
   };
 
@@ -268,7 +278,10 @@ export default function App() {
 
     const { error } = await sb.from("annual_evaluations").upsert(records, { onConflict: "eval_year,emp_no" });
     if (error) alert("저장 실패: " + error.message);
-    else alert(`${year}년도 평가데이터(${records.length}명)가 Supabase에 10년 보존 원장으로 기록되었습니다.`);
+    else {
+      alert(`${year}년도 평가데이터(${records.length}명)가 Supabase에 10년 보존 원장으로 기록되었습니다.`);
+      loadAllDataFromDB();
+    }
   };
 
   const handleExportCSV = () => {
@@ -300,7 +313,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 평가연도 선택기: '평가 결과 입력' 탭일 때만 표시 */}
           {tab === "input" && (
             <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
               <button
@@ -436,7 +448,7 @@ export default function App() {
         onCloseWeightGuide={() => setIsWeightGuideOpen(false)} onCloseConfig={() => setIsConfigOpen(false)}
         onConfigSaved={() => {
           setSbConnected(true);
-          loadYearDataFromDB(year);
+          loadAllDataFromDB();
         }}
       />
     </div>
