@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { EmployeeSnapshot, EvalStore, SnapshotStore, Grade } from './types/hr';
-import { DEPARTMENTS, DEFAULT_SNAPSHOT_2025, DEFAULT_SEED_2025, finalScore, pointsFor } from './lib/constants';
+import { DEPARTMENTS, DEFAULT_SNAPSHOT_2025, DEFAULT_SEED_2025, finalScore, pointsFor, sortByDeptAndPosition } from './lib/constants';
 import { getSupabase } from './lib/supabase';
 import { DashboardCards } from './components/DashboardCards';
 import { EvalInputTab } from './components/EvalInputTab';
@@ -35,11 +35,10 @@ export default function App() {
     return { 2025: DEFAULT_SEED_2025 };
   });
 
-  // 연도 변경 핸들러: 이동하려는 연도의 명부가 없으면 현재 연도 명부를 기반으로 자동 생성하며 이동
+  // 연도 이동 시 대상 연도 명부가 없으면 현재 또는 기준 명부를 바탕으로 자동 생성하며 이동
   const handleYearChange = (targetYear: number) => {
     setSnapshotStore(prev => {
       if (!prev[targetYear] || prev[targetYear].length === 0) {
-        // 기준이 될 기존 명부 찾기 (현재 연도 또는 2025년)
         const baseList = prev[year] || prev[2025] || DEFAULT_SNAPSHOT_2025;
         const autoCloned = baseList.map(e => ({
           ...e,
@@ -95,8 +94,10 @@ export default function App() {
     localStorage.setItem("ds_eval_store_v10", JSON.stringify(evalStore));
   }, [evalStore]);
 
+  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 및 직위 순으로 상시 정렬된 사원 목록
   const currentYearEmployees = useMemo(() => {
-    return snapshotStore[year] || [];
+    const rawList = snapshotStore[year] || [];
+    return [...rawList].sort(sortByDeptAndPosition);
   }, [snapshotStore, year]);
 
   const filteredEmps = useMemo(() => {
@@ -151,7 +152,6 @@ export default function App() {
       birth_date: "",
       hire_date: `${year}-01-01`,
       promo_date: `${year}-01-01`,
-      retire_date: "",
       status: "재직",
       remarks: ""
     };
