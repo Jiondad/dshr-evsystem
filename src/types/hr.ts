@@ -9,15 +9,16 @@ export interface WeightItem {
 }
 
 export interface EmployeeSnapshot {
+  _rowId?: string; // 렌더링 포커스 유지용 고유 불변 키
   snapshot_year: number;
   emp_no: string;
   name: string;
   dept: string;
   position: string;
-  birth_date?: string;
-  hire_date?: string;
-  promo_date?: string;
-  retire_date?: string;
+  birth_date?: string | null;
+  hire_date?: string | null;
+  promo_date?: string | null;
+  retire_date?: string | null;
   status: StatusType;
   remarks?: string;
 }
