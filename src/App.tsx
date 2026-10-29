@@ -46,8 +46,12 @@ export default function App() {
       .order("emp_no");
 
     if (!empErr && empData && empData.length > 0) {
+      const withRowId = empData.map((e: any) => ({
+        ...e,
+        _rowId: e._rowId || `${e.snapshot_year}_${e.emp_no}_${Math.random()}`
+      }));
       setSnapshotStore(prev => {
-        const updated = { ...prev, [targetYear]: empData };
+        const updated = { ...prev, [targetYear]: withRowId };
         localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
         return updated;
       });
@@ -130,30 +134,29 @@ export default function App() {
     });
   };
 
-  // 특정 사원 객체를 직접 찾아서 값 변경 (정렬 여부 무관)
-  const handleSnapshotCellChange = (targetEmp: EmployeeSnapshot, field: keyof EmployeeSnapshot, val: any) => {
+  // 불변 고유 _rowId 기준 셀 값 수정 (사번 입력 중에도 포커스 완벽 유지)
+  const handleSnapshotCellChange = (rowId: string, field: keyof EmployeeSnapshot, val: any) => {
     setSnapshotStore(prev => {
-      const list = [...(prev[year] || [])];
-      const idx = list.indexOf(targetEmp);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], [field]: val };
-      }
-      const updated = { ...prev, [year]: list };
+      const list = prev[year] || [];
+      const updatedList = list.map(e => e._rowId === rowId ? { ...e, [field]: val } : e);
+      const updated = { ...prev, [year]: updatedList };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
     });
   };
 
+  // 행 추가 시 고유 _rowId 부여
   const handleAddRow = () => {
     const newEmp: EmployeeSnapshot = {
+      _rowId: `new_${Date.now()}_${Math.random()}`,
       snapshot_year: year,
       emp_no: "",
       name: "",
       dept: "생산팀",
       position: "사원",
-      birth_date: "",
-      hire_date: "",
-      promo_date: "",
+      birth_date: null,
+      hire_date: null,
+      promo_date: null,
       status: "재직",
       remarks: ""
     };
@@ -164,7 +167,6 @@ export default function App() {
     });
   };
 
-  // 대상 사원 객체를 직접 전달받아 정확하게 삭제
   const handleDeleteRow = async (targetEmp: EmployeeSnapshot) => {
     const empLabel = targetEmp?.name ? `${targetEmp.name}(${targetEmp.emp_no || '미지정'})` : (targetEmp.emp_no || '해당 사원');
 
@@ -173,7 +175,7 @@ export default function App() {
     }
 
     setSnapshotStore(prev => {
-      const list = (prev[year] || []).filter(e => e !== targetEmp);
+      const list = (prev[year] || []).filter(e => e._rowId !== targetEmp._rowId);
       const updated = { ...prev, [year]: list };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
@@ -194,7 +196,11 @@ export default function App() {
       alert(`${prevYear}년도 사원 마스터가 존재하지 않습니다.`);
       return;
     }
-    const copied = baseList.map(e => ({ ...e, snapshot_year: year }));
+    const copied = baseList.map(e => ({
+      ...e,
+      snapshot_year: year,
+      _rowId: `${year}_${e.emp_no}_${Math.random()}`
+    }));
     setSnapshotStore(prev => {
       const updated = { ...prev, [year]: copied };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
@@ -203,6 +209,7 @@ export default function App() {
     alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 복사했습니다.`);
   };
 
+  // 사원 마스터 저장 시 빈 날짜 문자열("")을 null로 자동 변환하여 에러 원천 차단
   const handleSaveSnapshotMaster = async () => {
     const sb = getSupabase();
     if (!sb) {
@@ -216,9 +223,27 @@ export default function App() {
       return;
     }
 
-    const { error } = await sb.from("employee_snapshots").upsert(currentYearEmployees, { onConflict: "snapshot_year,emp_no" });
-    if (error) alert("저장 실패: " + error.message);
-    else alert(`${year}년도 사원마스터(${currentYearEmployees.length}명)가 Supabase에 영구 보관되었습니다.`);
+    // 날짜 컬럼의 "" 빈값을 null로 안전 치환
+    const cleanData = currentYearEmployees.map(e => ({
+      snapshot_year: e.snapshot_year,
+      emp_no: e.emp_no.trim(),
+      name: e.name || "",
+      dept: e.dept || "생산팀",
+      position: e.position || "사원",
+      birth_date: e.birth_date && String(e.birth_date).trim() !== "" ? e.birth_date : null,
+      hire_date: e.hire_date && String(e.hire_date).trim() !== "" ? e.hire_date : null,
+      promo_date: e.promo_date && String(e.promo_date).trim() !== "" ? e.promo_date : null,
+      status: e.status || "재직",
+      remarks: e.remarks || ""
+    }));
+
+    const { error } = await sb.from("employee_snapshots").upsert(cleanData, { onConflict: "snapshot_year,emp_no" });
+    if (error) {
+      alert("저장 실패: " + error.message);
+    } else {
+      alert(`${year}년도 사원마스터(${cleanData.length}명)가 Supabase에 영구 보관되었습니다.`);
+      loadYearDataFromDB(year);
+    }
   };
 
   const handleSaveAllEvals = async () => {
