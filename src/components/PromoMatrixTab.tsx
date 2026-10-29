@@ -10,7 +10,9 @@ interface Props {
 
 // 직급별 최소 체류 연한 (연 단위)
 const PROMO_REQ_YEARS: Record<string, number> = {
-  "사원": 3,  // 사원 -> 대리 3년
+  "사원": 3,  // 사원 -> 반장/주임 3년
+  "반장": 3,  // 반장 -> 주임/대리 3년
+  "주임": 3,  // 주임 -> 대리 3년
   "대리": 4,  // 대리 -> 과장 4년
   "과장": 4,  // 과장 -> 차장 4년
   "차장": 5,  // 차장 -> 부장 5년
@@ -33,7 +35,6 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
     const baseYear = parseInt(baseDateStr.split('-')[0], 10);
     if (isNaN(baseYear)) return { years: 0, status: '미상', isMet: false };
 
-    // 현재 평가연도 기준 체류연수
     const tenureYears = year - baseYear;
     const reqYears = PROMO_REQ_YEARS[emp.position] || 5;
 
@@ -54,7 +55,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
             {year}년도 승진심사 대상 및 최근 3개년({years[0]} ~ {years[2]}) 승진포인트 집계표
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            ※ 대성스틸 승진 규정: 승진 당해 연도 포함 이전 평가는 포인트가 리셋되며, 승진 다음 연도부터 새롭게 누적 기산됩니다.
+            ※ 대성스틸 승진 규정: 승진 이전 연도까지의 평가는 포인트가 리셋되며, 승진 당해 연도 평가부터 새 직급의 포인트로 정상 누적 기산됩니다.
           </p>
         </div>
         <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-2">
@@ -111,7 +112,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
                       {emp.promo_date || '-'}
                     </td>
 
-                    {/* 직급 체류연한 심사 배지 (전 직급 동일 적용) */}
+                    {/* 직급 체류연한 심사 배지 */}
                     <td className="p-2 text-center whitespace-nowrap">
                       {tenure.isMet ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
@@ -126,14 +127,14 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
                       )}
                     </td>
 
-                    {/* 3개년 포인트 및 리셋 규칙 반영 */}
+                    {/* 3개년 포인트: 승진 '이전(y < promoYear)' 연도만 리셋 적용 */}
                     {years.map(y => {
                       const ev = evalStore[y]?.[emp.emp_no];
                       const grade = ev?.grade;
                       const rawPts = pointsFor(grade);
 
-                      // 승진 당해 연도 포함 이전 평가는 포인트 리셋
-                      const isReset = promoYear > 0 && y <= promoYear;
+                      // 승진 이전 연도(y < promoYear)인 경우만 리셋, 승진 당해 연도 평가는 정상 누적
+                      const isReset = promoYear > 0 && y < promoYear;
                       if (!isReset && rawPts > 0) {
                         totalPoints += rawPts;
                       }
@@ -142,7 +143,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
                         <td key={y} className="p-2 text-center whitespace-nowrap">
                           {grade ? (
                             isReset ? (
-                              <span className="text-slate-300 text-[11px] line-through decoration-slate-300" title={`${promoYear}년 승진으로 리셋`}>
+                              <span className="text-slate-300 text-[11px] line-through decoration-slate-300" title={`${promoYear}년 승진 이전 평가이므로 리셋`}>
                                 {grade}등급 (리셋 0점)
                               </span>
                             ) : (
@@ -157,7 +158,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
                       );
                     })}
 
-                    {/* 누적 승진포인트 합계 */}
+                    {/* 승진 누적 포인트 합계 */}
                     <td className="p-2 text-center font-black text-sm text-blue-900 bg-slate-50 whitespace-nowrap">
                       {totalPoints > 0 ? `${totalPoints}점` : '0점'}
                     </td>
