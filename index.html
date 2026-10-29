@@ -6,11 +6,9 @@
   <title>대성스틸 인사평가 및 승진심사 관리시스템</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React 18 & ReactDOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <!-- Babel Standalone -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- React 18 & ReactDOM UMD -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- FontAwesome Icons -->
@@ -25,8 +23,8 @@
 <body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
   <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+  <script>
+    const { useState, useEffect, useMemo, createElement: h } = React;
 
     const GRADES = ["S", "A", "B", "C", "D"];
     const GRADE_POINTS = { S: 10, A: 8, B: 6, C: 4, D: 2 };
@@ -125,13 +123,10 @@
       });
 
       useEffect(() => {
-        if (sbConfig.url && sbConfig.key) {
+        if (sbConfig.url && sbConfig.key && window.supabase) {
           try {
-            const client = window.supabase.createClient(sbConfig.url, sbConfig.key);
-            setSupabaseClient(client);
-          } catch(e) {
-            console.error("Supabase Init Error", e);
-          }
+            setSupabaseClient(window.supabase.createClient(sbConfig.url, sbConfig.key));
+          } catch(e) {}
         }
       }, [sbConfig]);
 
@@ -216,8 +211,6 @@
         }
         const records = filteredEmps.map(e => {
           const ev = currentYearEvals[e.emp_no] || {};
-          const fScore = finalScore(e.position, ev);
-          const pPoints = pointsFor(ev.grade);
           return {
             eval_year: year,
             emp_no: e.emp_no,
@@ -227,9 +220,9 @@
             leadership_score: ev.mentoring === "" ? null : ev.mentoring,
             adj_score: ev.adjust === "" ? null : ev.adjust,
             adj_reason: ev.adjustReason || null,
-            final_score: fScore,
+            final_score: finalScore(e.position, ev),
             final_grade: ev.grade || null,
-            promo_points: pPoints,
+            promo_points: pointsFor(ev.grade),
             remarks: ev.note || null
           };
         });
@@ -238,401 +231,351 @@
         if (error) {
           alert("저장 실패: " + error.message);
         } else {
-          alert("Supabase에 " + records.length + "명의 평가 데이터가 안전하게 저장되었습니다.");
+          alert("Supabase에 " + records.length + "명의 데이터가 저장되었습니다.");
         }
       };
 
       const handleSaveEmployee = async (empData) => {
-        if (!editingEmp && employees.some(e => e.emp_no === empData.emp_no)) {
-          alert("이미 존재하는 사번입니다.");
-          return;
-        }
-
         let updated;
         if (editingEmp) {
           updated = employees.map(e => e.emp_no === editingEmp.emp_no ? empData : e);
         } else {
+          if (employees.some(e => e.emp_no === empData.emp_no)) {
+            alert("이미 존재하는 사번입니다.");
+            return;
+          }
           updated = [...employees, empData];
         }
         setEmployees(updated);
-
-        if (supabaseClient) {
-          await supabaseClient.from("employees").upsert(empData);
-        }
-
+        if (supabaseClient) await supabaseClient.from("employees").upsert(empData);
         setIsEmpModalOpen(false);
         setEditingEmp(null);
       };
 
-      return (
-        <div className="max-w-[1550px] mx-auto p-6 space-y-6">
-          <header className="bg-slate-900 text-white rounded-xl p-4 shadow-md flex flex-wrap justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <span className="p-2 rounded bg-blue-600 text-white font-bold"><i className="fa-solid fa-users-gear"></i></span>
-              <div>
-                <h1 className="text-lg font-bold tracking-tight">대성스틸 인사평가 및 승진심사 관리시스템</h1>
-                <p className="text-xs text-slate-400">대표이사 최종 원점수 환산 및 그룹 평가 기준율 검증</p>
-              </div>
-            </div>
+      return h("div", { className: "max-w-[1550px] mx-auto p-6 space-y-6" },
+        // 헤더
+        h("header", { className: "bg-slate-900 text-white rounded-xl p-4 shadow-md flex flex-wrap justify-between items-center gap-4" },
+          h("div", { className: "flex items-center gap-3" },
+            h("span", { className: "p-2 rounded bg-blue-600 text-white font-bold" }, h("i", { className: "fa-solid fa-users-gear" })),
+            h("div", null,
+              h("h1", { className: "text-lg font-bold tracking-tight" }, "대성스틸 인사평가 및 승진심사 관리시스템"),
+              h("p", { className: "text-xs text-slate-400" }, "대표이사 최종 원점수 환산 및 그룹 평가 기준율 검증")
+            )
+          ),
+          h("div", { className: "flex items-center gap-2" },
+            h("div", { className: "flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700" },
+              h("button", { onClick: () => setYear(y => y - 1), className: "px-2 py-1 text-slate-400 hover:text-white" }, "<"),
+              h("span", { className: "px-3 py-1 font-bold text-sm text-amber-400" }, year + "년 귀속"),
+              h("button", { onClick: () => setYear(y => y + 1), className: "px-2 py-1 text-slate-400 hover:text-white" }, ">")
+            ),
+            h("div", { className: "flex bg-slate-800 p-1 rounded-lg" },
+              h("button", {
+                onClick: () => setTab("input"),
+                className: "px-3 py-1.5 text-xs font-bold rounded " + (tab === 'input' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')
+              }, "평가 결과 입력"),
+              h("button", {
+                onClick: () => setTab("promo"),
+                className: "px-3 py-1.5 text-xs font-bold rounded " + (tab === 'promo' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')
+              }, "다년도 승진심사 매트릭스")
+            ),
+            h("button", {
+              onClick: () => { setEditingEmp(null); setIsEmpModalOpen(true); },
+              className: "px-3 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+            }, h("i", { className: "fa-solid fa-user-plus" }), " 사원 마스터 관리"),
+            h("button", {
+              onClick: () => setIsConfigOpen(true),
+              className: "px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 " + (supabaseClient ? "bg-slate-800 text-emerald-400 border border-emerald-500/50" : "bg-amber-600 text-white")
+            }, h("i", { className: "fa-solid fa-database" }), supabaseClient ? "Supabase 연동됨" : "Supabase 설정")
+          )
+        ),
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
-                <button onClick={() => setYear(y => y - 1)} className="px-2 py-1 text-slate-400 hover:text-white"><</button>
-                <span className="px-3 py-1 font-bold text-sm text-amber-400"><i className="fa-regular fa-calendar mr-1.5"></i>{year}년 귀속</span>
-                <button onClick={() => setYear(y => y + 1)} className="px-2 py-1 text-slate-400 hover:text-white">></button>
-              </div>
+        // 컨트롤 바
+        h("div", { className: "bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3" },
+          h("div", { className: "flex flex-wrap items-center gap-2" },
+            h("span", { className: "text-xs font-bold text-slate-500 mr-1" }, "부서 필터:"),
+            h("button", {
+              onClick: () => setDept("전체"),
+              className: "px-3 py-1 text-xs font-bold rounded-lg transition " + (dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+            }, "전체부서 (" + employees.length + ")"),
+            DEPARTMENTS.map(d => {
+              const count = employees.filter(e => e.dept === d).length;
+              return h("button", {
+                key: d,
+                onClick: () => setDept(d),
+                className: "px-3 py-1 text-xs font-bold rounded-lg transition " + (dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+              }, d + " (" + count + ")");
+            })
+          ),
+          h("div", { className: "flex items-center gap-3" },
+            h("div", { className: "relative" },
+              h("input", {
+                type: "text",
+                placeholder: "성명, 사번, 직위 검색...",
+                value: searchQuery,
+                onChange: e => setSearchQuery(e.target.value),
+                className: "pl-3 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-52 focus:outline-blue-500"
+              })
+            ),
+            h("button", {
+              onClick: handleSaveAll,
+              className: "px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm"
+            }, h("i", { className: "fa-solid fa-cloud-arrow-up" }), " 평가데이터 저장 (Upsert)")
+          )
+        ),
 
-              <div className="flex bg-slate-800 p-1 rounded-lg">
-                <button
-                  onClick={() => setTab("input")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded ${tab === 'input' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                ><i className="fa-solid fa-pen-to-square mr-1"></i>평가 결과 입력</button>
-                <button
-                  onClick={() => setTab("promo")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded ${tab === 'promo' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                ><i className="fa-solid fa-table-list mr-1"></i>다년도 승진심사 매트릭스</button>
-              </div>
+        // 등급 통계 카드
+        h("div", { className: "grid grid-cols-2 md:grid-cols-6 gap-3" },
+          h("div", { className: "bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between" },
+            h("span", { className: "text-xs font-semibold text-slate-400" }, "전체 부서 평가 대상"),
+            h("div", { className: "my-2" },
+              h("span", { className: "text-3xl font-black text-slate-800" }, totalCount),
+              h("span", { className: "text-sm font-semibold text-slate-500 ml-1" }, "명")
+            ),
+            h("div", { className: "text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded" },
+              "배분 완료: ", h("b", { className: "text-blue-600" }, gradedTotal + "명"), " (" + getPct(gradedTotal) + "%)"
+            )
+          ),
+          GRADES.map(grade => {
+            const targetRate = GRADE_TARGET_RATE[grade];
+            const recCount = recommendedCount(totalCount, grade);
+            const curCount = counts[grade];
+            const curRate = getPct(curCount);
+            const isOver = curCount > Math.round(parseFloat(recCount));
 
-              <button
-                onClick={() => { setEditingEmp(null); setIsEmpModalOpen(true); }}
-                className="px-3 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
-              >
-                <i className="fa-solid fa-user-plus"></i> 사원 마스터 관리
-              </button>
+            return h("div", {
+              key: grade,
+              className: "bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between transition " + (isOver && curCount > 0 ? "border-amber-400 bg-amber-50/20" : "border-slate-200")
+            },
+              h("div", { className: "flex justify-between items-center" },
+                h("span", { className: "font-extrabold text-sm text-slate-700 flex items-center gap-1.5" },
+                  h("span", { className: "w-5 h-5 rounded flex items-center justify-center text-xs " + gradeColor[grade] }, grade),
+                  grade + "등급"
+                ),
+                h("span", { className: "text-xs text-slate-400 font-medium" }, "기준 " + targetRate + "%")
+              ),
+              h("div", { className: "my-2 flex items-baseline gap-2" },
+                h("span", { className: "text-2xl font-black text-slate-800" }, curCount + "명"),
+                h("span", { className: "text-xs font-bold text-slate-500" }, "(" + curRate + "%)")
+              ),
+              h("div", { className: "flex justify-between items-center text-xs pt-2 border-t border-slate-100" },
+                h("span", { className: "text-slate-400" }, "권장: ", h("b", { className: "text-slate-700" }, recCount + "명")),
+                h("span", {
+                  className: "px-1.5 py-0.5 rounded text-[10px] font-bold " + (isOver && curCount > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")
+                }, isOver && curCount > 0 ? "초과주의" : "적정")
+              )
+            );
+          })
+        ),
 
-              <button
-                onClick={() => setIsConfigOpen(true)}
-                className={`px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 ${supabaseClient ? 'bg-slate-800 text-emerald-400 border border-emerald-500/50' : 'bg-amber-600 text-white'}`}
-              >
-                <i className="fa-solid fa-database"></i> {supabaseClient ? "Supabase 연동됨" : "Supabase 설정"}
-              </button>
-            </div>
-          </header>
+        // 평가 테이블 또는 승진 매트릭스
+        tab === "input" ? (
+          h("div", { className: "bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" },
+            h("div", { className: "px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center" },
+              h("span", { className: "text-xs font-bold text-slate-700" },
+                h("i", { className: "fa-solid fa-list-check mr-1.5 text-blue-600" }),
+                year + "년도 인사평가 결과 입력 (" + dept + " · " + filteredEmps.length + "명)"
+              ),
+              h("span", { className: "text-xs text-slate-500" }, "* 사원 성명을 클릭하면 직위, 부서, 승진일자를 수정할 수 있습니다.")
+            ),
+            h("div", { className: "overflow-x-auto" },
+              h("table", { className: "w-full text-left text-xs border-collapse" },
+                h("thead", { className: "bg-slate-100 text-slate-600 font-semibold border-b border-slate-200" },
+                  h("tr", null,
+                    h("th", { className: "p-3 text-center w-14" }, "사번"),
+                    h("th", { className: "p-3 w-20" }, "성명"),
+                    h("th", { className: "p-3 w-24" }, "부서"),
+                    h("th", { className: "p-3 w-16" }, "직위"),
+                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "역량"),
+                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "성과"),
+                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "자기계발"),
+                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "부하육성"),
+                    h("th", { className: "p-3 text-center w-24" }, "가감점/사유"),
+                    h("th", { className: "p-3 text-center w-24 bg-slate-200/60 font-bold text-slate-800" }, "최종 환산점수"),
+                    h("th", { className: "p-3 text-center w-24" }, "최종 등급"),
+                    h("th", { className: "p-3 text-center w-20" }, "승진 포인트"),
+                    h("th", { className: "p-3" }, "특이사항")
+                  )
+                ),
+                h("tbody", { className: "divide-y divide-slate-100" },
+                  filteredEmps.map(emp => {
+                    const ev = currentYearEvals[emp.emp_no] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
+                    const w = weightsFor(emp.position);
+                    const fScore = finalScore(emp.position, ev);
+                    const points = pointsFor(ev.grade);
 
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 mr-1"><i className="fa-solid fa-filter mr-1"></i>부서 필터:</span>
-              <button
-                onClick={() => setDept("전체")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition ${dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >전체부서 ({employees.length})</button>
-              {DEPARTMENTS.map(d => {
-                const count = employees.filter(e => e.dept === d).length;
-                return (
-                  <button
-                    key={d}
-                    onClick={() => setDept(d)}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  >{d} ({count})</button>
-                );
-              })}
-            </div>
+                    return h("tr", { key: emp.emp_no, className: "hover:bg-blue-50/30 transition" },
+                      h("td", { className: "p-2.5 text-center font-mono text-slate-400" }, emp.emp_no),
+                      h("td", { className: "p-2.5" },
+                        h("button", {
+                          onClick: () => { setEditingEmp(emp); setIsEmpModalOpen(true); },
+                          className: "font-bold text-blue-600 hover:underline flex items-center gap-1"
+                        }, emp.name, h("i", { className: "fa-solid fa-pen text-[10px] text-slate-300" }))
+                      ),
+                      h("td", { className: "p-2.5 text-slate-600" }, emp.dept),
+                      h("td", { className: "p-2.5 font-semibold text-slate-700" }, emp.position),
 
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input
-                  type="text"
-                  placeholder="성명, 사번, 직위 검색..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-52 focus:outline-blue-500"
-                />
-              </div>
+                      // 역량
+                      h("td", { className: "p-2 text-center bg-blue-50/20" },
+                        w.competency > 0 ? h("div", null,
+                          h("input", {
+                            type: "number", step: "0.5", value: ev.competency,
+                            onChange: e => handleCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                          }),
+                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.competency * 100) + "%")
+                        ) : h("span", { className: "text-slate-300" }, "-")
+                      ),
 
-              <button
-                onClick={handleSaveAll}
-                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm"
-              >
-                <i className="fa-solid fa-cloud-arrow-up"></i> 평가데이터 저장 (Upsert)
-              </button>
-            </div>
-          </div>
+                      // 성과
+                      h("td", { className: "p-2 text-center bg-blue-50/20" },
+                        w.performance > 0 ? h("div", null,
+                          h("input", {
+                            type: "number", step: "0.5", value: ev.performance,
+                            onChange: e => handleCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                          }),
+                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.performance * 100) + "%")
+                        ) : h("span", { className: "text-slate-300" }, "-")
+                      ),
 
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-              <span className="text-xs font-semibold text-slate-400">전체 부서 평가 대상</span>
-              <div className="my-2">
-                <span className="text-3xl font-black text-slate-800">{totalCount}</span>
-                <span className="text-sm font-semibold text-slate-500 ml-1">명</span>
-              </div>
-              <div className="text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded">
-                배분 완료: <b className="text-blue-600">{gradedTotal}명</b> ({getPct(gradedTotal)}%)
-              </div>
-            </div>
+                      // 자기계발
+                      h("td", { className: "p-2 text-center bg-blue-50/20" },
+                        w.selfDev > 0 ? h("div", null,
+                          h("input", {
+                            type: "number", step: "0.5", value: ev.selfDev,
+                            onChange: e => handleCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                          }),
+                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.selfDev * 100) + "%")
+                        ) : h("span", { className: "text-slate-300" }, "-")
+                      ),
 
-            {GRADES.map(grade => {
-              const targetRate = GRADE_TARGET_RATE[grade];
-              const recCount = recommendedCount(totalCount, grade);
-              const curCount = counts[grade];
-              const curRate = getPct(curCount);
-              const isOver = curCount > Math.round(parseFloat(recCount));
+                      // 부하육성
+                      h("td", { className: "p-2 text-center bg-blue-50/20" },
+                        w.mentoring > 0 ? h("div", null,
+                          h("input", {
+                            type: "number", step: "0.5", value: ev.mentoring,
+                            onChange: e => handleCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                          }),
+                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.mentoring * 100) + "%")
+                        ) : h("span", { className: "text-slate-300" }, "-")
+                      ),
 
-              return (
-                <div key={grade} className={`bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between transition ${isOver && curCount > 0 ? 'border-amber-400 bg-amber-50/20' : 'border-slate-200'}`}>
-                  <div className="flex justify-between items-center">
-                    <span className="font-extrabold text-sm text-slate-700 flex items-center gap-1.5">
-                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs ${gradeColor[grade]}`}>
-                        {grade}
-                      </span>
-                      {grade}등급
-                    </span>
-                    <span className="text-xs text-slate-400 font-medium">기준 {targetRate}%</span>
-                  </div>
+                      // 가감점
+                      h("td", { className: "p-2 text-center" },
+                        h("div", { className: "flex items-center gap-1 justify-center" },
+                          h("input", {
+                            type: "number", placeholder: "±", value: ev.adjust,
+                            onChange: e => handleCellChange(emp.emp_no, 'adjust', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                            className: "w-12 border rounded px-1 py-1 text-center font-medium bg-white focus:outline-blue-500 text-xs"
+                          }),
+                          h("input", {
+                            type: "text", placeholder: "사유", value: ev.adjustReason,
+                            onChange: e => handleCellChange(emp.emp_no, 'adjustReason', e.target.value),
+                            className: "w-20 border rounded px-1 py-1 text-xs bg-white focus:outline-blue-500"
+                          })
+                        )
+                      ),
 
-                  <div className="my-2 flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-800">{curCount}명</span>
-                    <span className="text-xs font-bold text-slate-500">({curRate}%)</span>
-                  </div>
+                      // 최종 점수
+                      h("td", { className: "p-2.5 text-center font-black text-blue-700 bg-slate-100/70 text-sm" }, fScore.toFixed(1)),
 
-                  <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100">
-                    <span className="text-slate-400">권장: <b className="text-slate-700">{recCount}명</b></span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isOver && curCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                      {isOver && curCount > 0 ? '초과주의' : '적정'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      // 최종 등급
+                      h("td", { className: "p-2 text-center" },
+                        h("select", {
+                          value: ev.grade,
+                          onChange: e => handleCellChange(emp.emp_no, 'grade', e.target.value),
+                          className: "border border-slate-300 rounded px-2 py-1 font-bold bg-white text-slate-800 shadow-sm focus:outline-blue-500"
+                        },
+                          h("option", { value: "" }, "-"),
+                          GRADES.map(g => h("option", { key: g, value: g }, g))
+                        )
+                      ),
 
-          {tab === "input" ? (
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <span className="text-xs font-bold text-slate-700">
-                  <i className="fa-solid fa-list-check mr-1.5 text-blue-600"></i> {year}년도 인사평가 결과 입력 ({dept} · {filteredEmps.length}명)
-                </span>
-                <span className="text-xs text-slate-500">
-                  * 사원 성명을 클릭하면 사원 마스터(직위, 부서, 승진일자)를 바로 수정할 수 있습니다.
-                </span>
-              </div>
+                      // 승진 포인트
+                      h("td", { className: "p-2.5 text-center" },
+                        h("span", { className: "px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800" }, "+" + points + "P")
+                      ),
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 text-center w-14">사번</th>
-                      <th className="p-3 w-20">성명</th>
-                      <th className="p-3 w-24">부서</th>
-                      <th className="p-3 w-16">직위</th>
-                      <th className="p-3 text-center w-20 bg-blue-50/50">역량</th>
-                      <th className="p-3 text-center w-20 bg-blue-50/50">성과</th>
-                      <th className="p-3 text-center w-20 bg-blue-50/50">자기계발</th>
-                      <th className="p-3 text-center w-20 bg-blue-50/50">부하육성</th>
-                      <th className="p-3 text-center w-24">가감점 / 사유</th>
-                      <th className="p-3 text-center w-24 bg-slate-200/60 font-bold text-slate-800">최종 환산점수</th>
-                      <th className="p-3 text-center w-24">최종 등급</th>
-                      <th className="p-3 text-center w-20">승진 포인트</th>
-                      <th className="p-3">특이사항</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredEmps.map(emp => {
-                      const ev = currentYearEvals[emp.emp_no] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
-                      const w = weightsFor(emp.position);
-                      const fScore = finalScore(emp.position, ev);
-                      const points = pointsFor(ev.grade);
+                      // 특이사항
+                      h("td", { className: "p-2" },
+                        h("input", {
+                          type: "text", placeholder: "특이사항 메모", value: ev.note,
+                          onChange: e => handleCellChange(emp.emp_no, 'note', e.target.value),
+                          className: "w-full border rounded px-2 py-1 text-xs text-slate-600 bg-white focus:outline-blue-500"
+                        })
+                      )
+                    );
+                  })
+                )
+              )
+            )
+          )
+        ) : (
+          h("div", { className: "bg-white border border-slate-200 rounded-xl p-6 shadow-sm" },
+            h("div", { className: "flex justify-between items-center mb-4" },
+              h("h2", { className: "text-base font-bold text-slate-800 flex items-center gap-2" },
+                h("i", { className: "fa-solid fa-award text-amber-500" }),
+                "최근 3개년 승진심사 대상 및 포인트 집계표"
+              ),
+              h("span", { className: "text-xs text-slate-400" }, "기준: S(10P), A(8P), B(6P), C(4P), D(2P)")
+            ),
+            h("div", { className: "overflow-x-auto" },
+              h("table", { className: "w-full text-left text-xs border-collapse" },
+                h("thead", { className: "bg-slate-100 text-slate-600 font-semibold border-b" },
+                  h("tr", null,
+                    h("th", { className: "p-3" }, "사번"),
+                    h("th", { className: "p-3" }, "성명"),
+                    h("th", { className: "p-3" }, "부서"),
+                    h("th", { className: "p-3" }, "직위"),
+                    h("th", { className: "p-3" }, "입사일자"),
+                    h("th", { className: "p-3" }, "최근승진일"),
+                    h("th", { className: "p-3 text-center" }, "2023년"),
+                    h("th", { className: "p-3 text-center" }, "2024년"),
+                    h("th", { className: "p-3 text-center bg-blue-50" }, "2025년 (확정)"),
+                    h("th", { className: "p-3 text-center font-bold text-slate-800 bg-amber-50" }, "3개년 누적 승진포인트")
+                  )
+                ),
+                h("tbody", { className: "divide-y divide-slate-100" },
+                  filteredEmps.map(emp => {
+                    const curGrade = currentYearEvals[emp.emp_no]?.grade || "B";
+                    const curPoint = pointsFor(curGrade);
+                    const p2023 = 6;
+                    const p2024 = 6;
+                    const totalPoint = p2023 + p2024 + curPoint;
 
-                      return (
-                        <tr key={emp.emp_no} className="hover:bg-blue-50/30 transition">
-                          <td className="p-2.5 text-center font-mono text-slate-400">{emp.emp_no}</td>
-                          <td className="p-2.5">
-                            <button
-                              onClick={() => { setEditingEmp(emp); setIsEmpModalOpen(true); }}
-                              className="font-bold text-blue-600 hover:underline flex items-center gap-1"
-                            >
-                              {emp.name} <i className="fa-solid fa-pen text-[10px] text-slate-300"></i>
-                            </button>
-                          </td>
-                          <td className="p-2.5 text-slate-600">{emp.dept}</td>
-                          <td className="p-2.5 font-semibold text-slate-700">{emp.position}</td>
+                    return h("tr", { key: emp.emp_no, className: "hover:bg-slate-50" },
+                      h("td", { className: "p-3 font-mono text-slate-400" }, emp.emp_no),
+                      h("td", { className: "p-3 font-bold text-slate-800" }, emp.name),
+                      h("td", { className: "p-3 text-slate-600" }, emp.dept),
+                      h("td", { className: "p-3 text-slate-700" }, emp.position),
+                      h("td", { className: "p-3 text-slate-500" }, emp.hire_date || '-'),
+                      h("td", { className: "p-3 text-slate-500" }, emp.promo_date || '-'),
+                      h("td", { className: "p-3 text-center text-slate-500" }, "B (6P)"),
+                      h("td", { className: "p-3 text-center text-slate-500" }, "B (6P)"),
+                      h("td", { className: "p-3 text-center font-bold text-blue-600 bg-blue-50/30" }, curGrade + " (+" + curPoint + "P)"),
+                      h("td", { className: "p-3 text-center font-black text-amber-700 bg-amber-50/50 text-sm" }, totalPoint + "P")
+                    );
+                  })
+                )
+              )
+            )
+          )
+        ),
 
-                          <td className="p-2 text-center bg-blue-50/20">
-                            {w.competency > 0 ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  value={ev.competency}
-                                  onChange={e => handleCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                                />
-                                <div className="text-[10px] text-slate-400 mt-0.5">{w.competency * 100}%</div>
-                              </div>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-
-                          <td className="p-2 text-center bg-blue-50/20">
-                            {w.performance > 0 ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  value={ev.performance}
-                                  onChange={e => handleCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                                />
-                                <div className="text-[10px] text-slate-400 mt-0.5">{w.performance * 100}%</div>
-                              </div>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-
-                          <td className="p-2 text-center bg-blue-50/20">
-                            {w.selfDev > 0 ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  value={ev.selfDev}
-                                  onChange={e => handleCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                                />
-                                <div className="text-[10px] text-slate-400 mt-0.5">{w.selfDev * 100}%</div>
-                              </div>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-
-                          <td className="p-2 text-center bg-blue-50/20">
-                            {w.mentoring > 0 ? (
-                              <div>
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  value={ev.mentoring}
-                                  onChange={e => handleCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                                />
-                                <div className="text-[10px] text-slate-400 mt-0.5">{w.mentoring * 100}%</div>
-                              </div>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-
-                          <td className="p-2 text-center">
-                            <div className="flex items-center gap-1 justify-center">
-                              <input
-                                type="number"
-                                placeholder="±"
-                                value={ev.adjust}
-                                onChange={e => handleCellChange(emp.emp_no, 'adjust', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                                className="w-12 border rounded px-1 py-1 text-center font-medium bg-white focus:outline-blue-500 text-xs"
-                              />
-                              <input
-                                type="text"
-                                placeholder="사유"
-                                value={ev.adjustReason}
-                                onChange={e => handleCellChange(emp.emp_no, 'adjustReason', e.target.value)}
-                                className="w-20 border rounded px-1 py-1 text-xs bg-white focus:outline-blue-500"
-                              />
-                            </div>
-                          </td>
-
-                          <td className="p-2.5 text-center font-black text-blue-700 bg-slate-100/70 text-sm">
-                            {fScore.toFixed(1)}
-                          </td>
-
-                          <td className="p-2 text-center">
-                            <select
-                              value={ev.grade}
-                              onChange={e => handleCellChange(emp.emp_no, 'grade', e.target.value)}
-                              className="border border-slate-300 rounded px-2 py-1 font-bold bg-white text-slate-800 shadow-sm focus:outline-blue-500"
-                            >
-                              <option value="">-</option>
-                              {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                          </td>
-
-                          <td className="p-2.5 text-center">
-                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                              +{points}P
-                            </span>
-                          </td>
-
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              placeholder="특이사항 메모"
-                              value={ev.note}
-                              onChange={e => handleCellChange(emp.emp_no, 'note', e.target.value)}
-                              className="w-full border rounded px-2 py-1 text-xs text-slate-600 bg-white focus:outline-blue-500"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                  <i className="fa-solid fa-award text-amber-500"></i> 최근 3개년 승진심사 대상 및 포인트 집계표
-                </h2>
-                <span className="text-xs text-slate-400">기준: S(10P), A(8P), B(6P), C(4P), D(2P)</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 text-slate-600 font-semibold border-b">
-                    <tr>
-                      <th className="p-3">사번</th>
-                      <th className="p-3">성명</th>
-                      <th className="p-3">부서</th>
-                      <th className="p-3">직위</th>
-                      <th className="p-3">입사일자</th>
-                      <th className="p-3">최근승진일</th>
-                      <th className="p-3 text-center">2023년</th>
-                      <th className="p-3 text-center">2024년</th>
-                      <th className="p-3 text-center bg-blue-50">2025년 (확정)</th>
-                      <th className="p-3 text-center font-bold text-slate-800 bg-amber-50">3개년 누적 승진포인트</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredEmps.map(emp => {
-                      const curGrade = currentYearEvals[emp.emp_no]?.grade || "B";
-                      const curPoint = pointsFor(curGrade);
-                      const p2023 = 6;
-                      const p2024 = 6;
-                      const totalPoint = p2023 + p2024 + curPoint;
-
-                      return (
-                        <tr key={emp.emp_no} className="hover:bg-slate-50">
-                          <td className="p-3 font-mono text-slate-400">{emp.emp_no}</td>
-                          <td className="p-3 font-bold text-slate-800">{emp.name}</td>
-                          <td className="p-3 text-slate-600">{emp.dept}</td>
-                          <td className="p-3 text-slate-700">{emp.position}</td>
-                          <td className="p-3 text-slate-500">{emp.hire_date || '-'}</td>
-                          <td className="p-3 text-slate-500">{emp.promo_date || '-'}</td>
-                          <td className="p-3 text-center text-slate-500">B (6P)</td>
-                          <td className="p-3 text-center text-slate-500">B (6P)</td>
-                          <td className="p-3 text-center font-bold text-blue-600 bg-blue-50/30">
-                            {curGrade} (+{curPoint}P)
-                          </td>
-                          <td className="p-3 text-center font-black text-amber-700 bg-amber-50/50 text-sm">
-                            {totalPoint}P
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {isEmpModalOpen && (
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b">
-                  <h3 className="font-bold text-slate-800 text-base">
-                    {editingEmp ? "사원 정보 수정" : "신규 사원 등록"}
-                  </h3>
-                  <button onClick={() => setIsEmpModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                    <i className="fa-solid fa-xmark text-lg"></i>
-                  </button>
-                </div>
-
-                <form onSubmit={(e) => {
+        // 사원 모달
+        isEmpModalOpen ? (
+          h("div", { className: "fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+            h("div", { className: "bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
+              h("div", { className: "flex justify-between items-center mb-4 pb-2 border-b" },
+                h("h3", { className: "font-bold text-slate-800 text-base" }, editingEmp ? "사원 정보 수정" : "신규 사원 등록"),
+                h("button", { onClick: () => setIsEmpModalOpen(false), className: "text-slate-400 hover:text-slate-600" },
+                  h("i", { className: "fa-solid fa-xmark text-lg" })
+                )
+              ),
+              h("form", {
+                onSubmit: (e) => {
                   e.preventDefault();
                   const fd = new FormData(e.target);
                   handleSaveEmployee({
@@ -645,109 +588,95 @@
                     promo_date: fd.get("promo_date") || null,
                     is_active: true
                   });
-                }} className="space-y-3 text-xs">
-                  <div>
-                    <label className="block text-slate-600 font-bold mb-1">사번</label>
-                    <input
-                      name="emp_no"
-                      defaultValue={editingEmp ? editingEmp.emp_no : ""}
-                      readOnly={Boolean(editingEmp)}
-                      required
-                      placeholder="예: 250001"
-                      className="w-full border rounded px-3 py-1.5 font-mono bg-slate-50 focus:outline-blue-500"
-                    />
-                  </div>
+                },
+                className: "space-y-3 text-xs"
+              },
+                h("div", null,
+                  h("label", { className: "block text-slate-600 font-bold mb-1" }, "사번"),
+                  h("input", {
+                    name: "emp_no", defaultValue: editingEmp ? editingEmp.emp_no : "",
+                    readOnly: Boolean(editingEmp), required: true, placeholder: "예: 250001",
+                    className: "w-full border rounded px-3 py-1.5 font-mono bg-slate-50 focus:outline-blue-500"
+                  })
+                ),
+                h("div", null,
+                  h("label", { className: "block text-slate-600 font-bold mb-1" }, "성명"),
+                  h("input", {
+                    name: "name", defaultValue: editingEmp ? editingEmp.name : "",
+                    required: true, placeholder: "성명 입력",
+                    className: "w-full border rounded px-3 py-1.5 font-semibold focus:outline-blue-500"
+                  })
+                ),
+                h("div", { className: "grid grid-cols-2 gap-2" },
+                  h("div", null,
+                    h("label", { className: "block text-slate-600 font-bold mb-1" }, "부서"),
+                    h("select", { name: "dept", defaultValue: editingEmp ? editingEmp.dept : "관리팀", className: "w-full border rounded px-2 py-1.5 focus:outline-blue-500" },
+                      DEPARTMENTS.map(d => h("option", { key: d, value: d }, d))
+                    )
+                  ),
+                  h("div", null,
+                    h("label", { className: "block text-slate-600 font-bold mb-1" }, "직위"),
+                    h("select", { name: "position", defaultValue: editingEmp ? editingEmp.position : "사원", className: "w-full border rounded px-2 py-1.5 focus:outline-blue-500" },
+                      POSITIONS.map(p => h("option", { key: p, value: p }, p))
+                    )
+                  )
+                ),
+                h("div", { className: "grid grid-cols-3 gap-2" },
+                  h("div", null,
+                    h("label", { className: "block text-slate-600 font-medium mb-1" }, "생년월일"),
+                    h("input", { type: "date", name: "birth_date", defaultValue: editingEmp ? editingEmp.birth_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                  ),
+                  h("div", null,
+                    h("label", { className: "block text-slate-600 font-medium mb-1" }, "입사일자"),
+                    h("input", { type: "date", name: "hire_date", defaultValue: editingEmp ? editingEmp.hire_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                  ),
+                  h("div", null,
+                    h("label", { className: "block text-slate-600 font-medium mb-1" }, "최근승진일"),
+                    h("input", { type: "date", name: "promo_date", defaultValue: editingEmp ? editingEmp.promo_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                  )
+                ),
+                h("div", { className: "flex justify-end gap-2 pt-4 border-t mt-4" },
+                  h("button", {
+                    type: "button", onClick: () => setIsEmpModalOpen(false),
+                    className: "px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                  }, "취소"),
+                  h("button", {
+                    type: "submit",
+                    className: "px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  }, "저장하기")
+                )
+              )
+            )
+          )
+        ) : null,
 
-                  <div>
-                    <label className="block text-slate-600 font-bold mb-1">성명</label>
-                    <input
-                      name="name"
-                      defaultValue={editingEmp ? editingEmp.name : ""}
-                      required
-                      placeholder="성명 입력"
-                      className="w-full border rounded px-3 py-1.5 font-semibold focus:outline-blue-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-slate-600 font-bold mb-1">부서</label>
-                      <select name="dept" defaultValue={editingEmp ? editingEmp.dept : "관리팀"} className="w-full border rounded px-2 py-1.5 focus:outline-blue-500">
-                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 font-bold mb-1">직위</label>
-                      <select name="position" defaultValue={editingEmp ? editingEmp.position : "사원"} className="w-full border rounded px-2 py-1.5 focus:outline-blue-500">
-                        {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-slate-600 font-medium mb-1">생년월일</label>
-                      <input type="date" name="birth_date" defaultValue={editingEmp ? editingEmp.birth_date : ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 font-medium mb-1">입사일자</label>
-                      <input type="date" name="hire_date" defaultValue={editingEmp ? editingEmp.hire_date : ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 font-medium mb-1">최근승진일</label>
-                      <input type="date" name="promo_date" defaultValue={editingEmp ? editingEmp.promo_date : ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4 border-t mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setIsEmpModalOpen(false)}
-                      className="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold"
-                    >
-                      저장하기
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {isConfigOpen && (
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-                <h3 className="font-bold text-slate-800 text-base mb-3 pb-2 border-b">Supabase 클라우드 설정</h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="block text-slate-600 font-bold mb-1">Project URL</label>
-                    <input
-                      type="text"
-                      id="sb_url_input"
-                      defaultValue={sbConfig.url}
-                      placeholder="https://xxxxxxxx.supabase.co"
-                      className="w-full border rounded px-3 py-2 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-bold mb-1">Anon / Public API Key</label>
-                    <textarea
-                      id="sb_key_input"
-                      defaultValue={sbConfig.key}
-                      rows={3}
-                      placeholder="eyJh..."
-                      className="w-full border rounded px-3 py-2 font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-4 border-t mt-4">
-                  <button onClick={() => setIsConfigOpen(false)} className="px-3 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold text-xs">닫기</button>
-                  <button onClick={() => {
+        // Supabase 설정 모달
+        isConfigOpen ? (
+          h("div", { className: "fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+            h("div", { className: "bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
+              h("h3", { className: "font-bold text-slate-800 text-base mb-3 pb-2 border-b" }, "Supabase 클라우드 설정"),
+              h("div", { className: "space-y-3 text-xs" },
+                h("div", null,
+                  h("label", { className: "block text-slate-600 font-bold mb-1" }, "Project URL"),
+                  h("input", {
+                    type: "text", id: "sb_url_input", defaultValue: sbConfig.url,
+                    placeholder: "https://xxxxxxxx.supabase.co",
+                    className: "w-full border rounded px-3 py-2 font-mono"
+                  })
+                ),
+                h("div", null,
+                  h("label", { className: "block text-slate-600 font-bold mb-1" }, "Anon / Public API Key"),
+                  h("textarea", {
+                    id: "sb_key_input", defaultValue: sbConfig.key, rows: 3,
+                    placeholder: "eyJh...",
+                    className: "w-full border rounded px-3 py-2 font-mono"
+                  })
+                )
+              ),
+              h("div", { className: "flex justify-end gap-2 pt-4 border-t mt-4" },
+                h("button", { onClick: () => setIsConfigOpen(false), className: "px-3 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold text-xs" }, "닫기"),
+                h("button", {
+                  onClick: () => {
                     const u = document.getElementById("sb_url_input").value.trim();
                     const k = document.getElementById("sb_key_input").value.trim();
                     localStorage.setItem("ds_sb_url", u);
@@ -755,16 +684,17 @@
                     setSbConfig({ url: u, key: k });
                     setIsConfigOpen(false);
                     alert("Supabase 연결 정보가 저장되었습니다.");
-                  }} className="px-4 py-1.5 rounded bg-emerald-600 text-white font-bold text-xs">설정 저장</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+                  },
+                  className: "px-4 py-1.5 rounded bg-emerald-600 text-white font-bold text-xs"
+                }, "설정 저장")
+              )
+            )
+          )
+        ) : null
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(h(App));
   </script>
 </body>
 </html>
