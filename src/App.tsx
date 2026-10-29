@@ -35,6 +35,26 @@ export default function App() {
     return { 2025: DEFAULT_SEED_2025 };
   });
 
+  // 연도 변경 핸들러: 이동하려는 연도의 명부가 없으면 현재 연도 명부를 기반으로 자동 생성하며 이동
+  const handleYearChange = (targetYear: number) => {
+    setSnapshotStore(prev => {
+      if (!prev[targetYear] || prev[targetYear].length === 0) {
+        // 기준이 될 기존 명부 찾기 (현재 연도 또는 2025년)
+        const baseList = prev[year] || prev[2025] || DEFAULT_SNAPSHOT_2025;
+        const autoCloned = baseList.map(e => ({
+          ...e,
+          snapshot_year: targetYear
+        }));
+        return {
+          ...prev,
+          [targetYear]: autoCloned
+        };
+      }
+      return prev;
+    });
+    setYear(targetYear);
+  };
+
   useEffect(() => {
     const sb = getSupabase();
     if (!sb) return;
@@ -151,13 +171,13 @@ export default function App() {
   };
 
   const handleCopyPrevYear = () => {
-    const prevYear = year - 1;
-    const prevList = snapshotStore[prevYear] || [];
-    if (prevList.length === 0) {
-      alert(`${prevYear}년도 사원 마스터가 존재하지 않습니다.`);
+    const prevYear = year === 2024 ? 2025 : year - 1;
+    const baseList = snapshotStore[prevYear] || snapshotStore[2025] || [];
+    if (baseList.length === 0) {
+      alert(`복사할 사원 마스터가 존재하지 않습니다.`);
       return;
     }
-    const copied = prevList.map(e => ({ ...e, snapshot_year: year }));
+    const copied = baseList.map(e => ({ ...e, snapshot_year: year }));
     setSnapshotStore(prev => ({ ...prev, [year]: copied }));
     alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 불러왔습니다.`);
   };
@@ -203,12 +223,12 @@ export default function App() {
   };
 
   const handleExportCSV = () => {
-    let csv = "\uFEFF사번,성명,부서,직위,역량,성과,자기계발,부하육성,가감점,가감사유,최종환산점수,최종등급,승진포인트,특이사항\n";
+    let csv = "\uFEFF사번,성명,부서,직위,입사일,최근승진일,역량,성과,자기계발,부하육성,가감점,가감사유,최종환산점수,최종등급,승진포인트,특이사항\n";
     filteredEmps.forEach(e => {
       const ev = currentYearEvals[e.emp_no] || {};
       const fScore = finalScore(e.position, ev);
       const pts = pointsFor(ev.grade);
-      csv += `"${e.emp_no}","${e.name}","${e.dept}","${e.position}","${ev.competency||''}","${ev.performance||''}","${ev.selfDev||''}","${ev.mentoring||''}","${ev.adjust||''}","${ev.adjustReason||''}","${fScore}","${ev.grade||''}","${pts}","${ev.note||''}"\n`;
+      csv += `"${e.emp_no}","${e.name}","${e.dept}","${e.position}","${e.hire_date||''}","${e.promo_date||''}","${ev.competency||''}","${ev.performance||''}","${ev.selfDev||''}","${ev.mentoring||''}","${ev.adjust||''}","${ev.adjustReason||''}","${fScore}","${ev.grade||''}","${pts}","${ev.note||''}"\n`;
     });
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -232,13 +252,13 @@ export default function App() {
 
         <div className="flex items-center gap-2.5">
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
-            <button onClick={() => setYear(y => y - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
+            <button onClick={() => handleYearChange(year - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
               <i className="fa-solid fa-chevron-left text-xs" />
             </button>
             <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5">
               <i className="fa-regular fa-calendar-check" />{year}년 스냅샷
             </span>
-            <button onClick={() => setYear(y => y + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
+            <button onClick={() => handleYearChange(year + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
               <i className="fa-solid fa-chevron-right text-xs" />
             </button>
           </div>
@@ -340,8 +360,14 @@ export default function App() {
       {tab === "promo" && <PromoMatrixTab year={year} employees={filteredEmps} evalStore={evalStore} />}
       {tab === "snapshot_master" && (
         <EmployeeMasterTab
-          year={year} employees={currentYearEmployees} onCellChange={handleSnapshotCellChange}
-          onAddRow={handleAddRow} onDeleteRow={handleDeleteRow} onCopyPrevYear={handleCopyPrevYear} onSave={handleSaveSnapshotMaster}
+          year={year}
+          onYearChange={handleYearChange}
+          employees={currentYearEmployees}
+          onCellChange={handleSnapshotCellChange}
+          onAddRow={handleAddRow}
+          onDeleteRow={handleDeleteRow}
+          onCopyPrevYear={handleCopyPrevYear}
+          onSave={handleSaveSnapshotMaster}
         />
       )}
 
