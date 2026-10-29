@@ -375,7 +375,7 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-[1650px] mx-auto p-6 space-y-5 print:p-0 print:m-0 print:max-w-none">
+    <div className="max-w-[1880px] w-full mx-auto p-4 space-y-4 print:p-0 print:m-0 print:max-w-none">
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 8mm; }
