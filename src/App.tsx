@@ -134,7 +134,6 @@ export default function App() {
     });
   };
 
-  // 불변 고유 _rowId 기준 셀 값 수정 (사번 입력 중에도 포커스 완벽 유지)
   const handleSnapshotCellChange = (rowId: string, field: keyof EmployeeSnapshot, val: any) => {
     setSnapshotStore(prev => {
       const list = prev[year] || [];
@@ -145,7 +144,6 @@ export default function App() {
     });
   };
 
-  // 행 추가 시 고유 _rowId 부여
   const handleAddRow = () => {
     const newEmp: EmployeeSnapshot = {
       _rowId: `new_${Date.now()}_${Math.random()}`,
@@ -209,7 +207,6 @@ export default function App() {
     alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 복사했습니다.`);
   };
 
-  // 사원 마스터 저장 시 빈 날짜 문자열("")을 null로 자동 변환하여 에러 원천 차단
   const handleSaveSnapshotMaster = async () => {
     const sb = getSupabase();
     if (!sb) {
@@ -223,7 +220,6 @@ export default function App() {
       return;
     }
 
-    // 날짜 컬럼의 "" 빈값을 null로 안전 치환
     const cleanData = currentYearEmployees.map(e => ({
       snapshot_year: e.snapshot_year,
       emp_no: e.emp_no.trim(),
@@ -304,17 +300,28 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
-            <button onClick={() => handleYearChange(year - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
-              <i className="fa-solid fa-chevron-left text-xs" />
-            </button>
-            <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5">
-              <i className="fa-regular fa-calendar-check" />{year}년 평가
-            </span>
-            <button onClick={() => handleYearChange(year + 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
-              <i className="fa-solid fa-chevron-right text-xs" />
-            </button>
-          </div>
+          {/* 평가연도 선택기: '평가 결과 입력' 탭일 때만 표시 */}
+          {tab === "input" && (
+            <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
+              <button
+                onClick={() => handleYearChange(year - 1)}
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+                title="이전 연도 평가"
+              >
+                <i className="fa-solid fa-chevron-left text-xs" />
+              </button>
+              <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5">
+                <i className="fa-regular fa-calendar-check" />{year}년 평가
+              </span>
+              <button
+                onClick={() => handleYearChange(year + 1)}
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+                title="다음 연도 평가"
+              >
+                <i className="fa-solid fa-chevron-right text-xs" />
+              </button>
+            </div>
+          )}
 
           <div className="flex bg-[#1e293b] p-1 rounded-xl border border-slate-700/80">
             <button
