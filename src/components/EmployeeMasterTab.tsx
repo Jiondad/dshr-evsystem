@@ -21,6 +21,43 @@ export const EmployeeMasterTab: React.FC<Props> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 사원 마스터 엑셀 다운로드 함수
+  const handleExportExcel = () => {
+    let excelContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="utf-8"></head>
+      <body>
+        <table border="1">
+          <tr style="background-color: #f1f5f9; font-weight: bold;">
+            <th>No</th><th>사번</th><th>성명</th><th>부서</th><th>직위</th><th>상태</th><th>생년월일</th><th>입사일자</th><th>최근승진일</th><th>비고/담당직무</th>
+          </tr>
+    `;
+
+    employees.forEach((e, idx) => {
+      excelContent += `
+        <tr>
+          <td>${idx + 1}</td>
+          <td style="mso-number-format:'\\@';">${e.emp_no || ''}</td>
+          <td>${e.name || ''}</td>
+          <td>${e.dept || ''}</td>
+          <td>${e.position || ''}</td>
+          <td>${e.status || ''}</td>
+          <td>${e.birth_date || ''}</td>
+          <td>${e.hire_date || ''}</td>
+          <td>${e.promo_date || ''}</td>
+          <td>${e.remarks || ''}</td>
+        </tr>
+      `;
+    });
+
+    excelContent += `</table></body></html>`;
+    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `대성스틸_${year}년_사원마스터_명부.xls`;
+    link.click();
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -147,6 +184,12 @@ export const EmployeeMasterTab: React.FC<Props> = ({
             className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-900 text-white flex items-center gap-1.5 shadow-sm transition"
           >
             <i className="fa-solid fa-file-arrow-up text-[11px] text-emerald-400" /> CSV 일괄 업로드
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 transition"
+          >
+            <i className="fa-solid fa-file-excel text-[11px]" /> 엑셀 다운로드
           </button>
           <button onClick={onCopyPrevYear} className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border flex items-center gap-1.5 transition">
             <i className="fa-solid fa-clone text-[11px]" /> {year === 2024 ? "2025년도 명부 복사" : `${year - 1}년도 명부 복사`}
