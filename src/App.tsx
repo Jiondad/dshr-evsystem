@@ -448,6 +448,7 @@ export default function App() {
     }
   };
 
+  // 평가 저장 핸들러 (final_grade null 제약조건 방지 처리 포함)
   const handleSaveAllEvals = async () => {
     if (isCurrentYearLocked) {
       alert("해당 연도의 평가는 확정 및 마감되어 저장할 수 없습니다.");
@@ -467,6 +468,9 @@ export default function App() {
     if (isDeptLeader) {
       const records = filteredEmps.map(e => {
         const ev = currentYearEvals[e.emp_no] || {};
+        const fScore = finalScore(e.position, ev);
+        const determinedGrade = ev.grade || (fScore > 0 ? gradeFromScore(fScore) : null);
+
         return {
           eval_year: year,
           emp_no: e.emp_no,
@@ -478,8 +482,8 @@ export default function App() {
           leadership_score: ev.mentoring === "" ? null : ev.mentoring,
           adj_score: ev.adjust === "" ? null : ev.adjust,
           adj_reason: ev.adjustReason || null,
-          final_score: finalScore(e.position, ev),
-          final_grade: ev.grade || null,
+          final_score: fScore > 0 ? fScore : null,
+          final_grade: determinedGrade,
           remarks: ev.note || null
         };
       });
@@ -493,6 +497,9 @@ export default function App() {
     } else {
       const records = filteredEmps.map(e => {
         const ev = currentYearEvals[e.emp_no] || {};
+        const fScore = finalScore(e.position, ev);
+        const determinedGrade = ev.grade || (fScore > 0 ? gradeFromScore(fScore) : null);
+
         return {
           eval_year: year,
           emp_no: e.emp_no,
@@ -502,9 +509,9 @@ export default function App() {
           leadership_score: ev.mentoring === "" ? null : ev.mentoring,
           adj_score: ev.adjust === "" ? null : ev.adjust,
           adj_reason: ev.adjustReason || null,
-          final_score: finalScore(e.position, ev),
-          final_grade: ev.grade || null,
-          promo_points: pointsFor(ev.grade),
+          final_score: fScore > 0 ? fScore : null,
+          final_grade: determinedGrade,
+          promo_points: pointsFor(determinedGrade),
           remarks: ev.note || null
         };
       });
@@ -609,7 +616,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* ★ '평가 결과 입력' 탭 또는 '승진심사 매트릭스' 탭에서 연도 전환 컨트롤러 표시 */}
+          {/* '평가 결과 입력' 탭 및 '승진심사 매트릭스' 탭에서 연도 전환 컨트롤러 표시 */}
           {(tab === "input" || tab === "promo") && (
             <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
               <button
@@ -829,7 +836,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ★ 승진심사 매트릭스에 onYearChange 연결 */}
           {tab === "promo" && !isDeptLeader && (
             <PromoMatrixTab
               year={year}
