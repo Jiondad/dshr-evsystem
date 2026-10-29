@@ -180,15 +180,12 @@ export default function App() {
   const isDeptLeader = currentUser?.role === 'LV2_DEPT_LEADER';
   const isAdmin = currentUser?.role === "LV0_ADMIN";
 
-  // 현재 로그인 부서장의 1차 평가 제출 여부
   const currentDeptSubmission = currentUser?.dept ? submissionStore[year]?.[currentUser.dept] : undefined;
   const isCurrentDeptSubmitted = !!currentDeptSubmission?.isSubmitted;
 
-  // 부서장: 1차 평가 제출(확정) 처리
   const handleSubmitDeptEval = async () => {
     if (!isDeptLeader || !currentUser.dept) return;
 
-    // 미작성 인원 검증 (생산팀 임의호 실장 제외)
     const targetEmps = (snapshotStore[year] || []).filter(e => e.dept === currentUser.dept && e.status === "재직" && e.emp_no !== '140004');
     const myDeptEvals = deptEvalStore[year] || {};
     const uncompleted = targetEmps.filter(e => {
@@ -206,10 +203,8 @@ export default function App() {
       return;
     }
 
-    // 1. 점수 먼저 DB 저장
     await handleSaveAllEvals();
 
-    // 2. 제출 상태 DB 기록
     const sb = getSupabase();
     if (sb) {
       await sb.from("dept_submissions").upsert({
@@ -224,7 +219,6 @@ export default function App() {
     }
   };
 
-  // 관리자: 부서 1차 평가 제출 취소/수정 허용(반려) 처리
   const handleUnlockDeptSubmission = async (targetDept: string) => {
     if (!isAdmin) return;
     if (!window.confirm(`[${targetDept}] 부서의 1차 평가 제출 상태를 해제하여 부서장의 점수 재수정을 허용하시겠습니까?`)) {
@@ -294,11 +288,9 @@ export default function App() {
 
   const currentDeptEvals = deptEvalStore[year] || {};
 
-  // 부서별 1차 평가 진행률 통계 산출
   const deptProgressStats = useMemo(() => {
     const stats: Record<string, { total: number; done: number; isSubmitted: boolean }> = {};
     DEPARTMENTS.forEach(d => {
-      // 생산팀 임의호 실장은 1차 평가 대상에서 제외
       const emps = currentYearEmployees.filter(e => e.dept === d && e.status === '재직' && e.emp_no !== '140004');
       const dEvals = deptEvalStore[year] || {};
       const doneCount = emps.filter(e => {
@@ -617,20 +609,24 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {tab === "input" && (
+          {/* ★ '평가 결과 입력' 탭 또는 '승진심사 매트릭스' 탭에서 연도 전환 컨트롤러 표시 */}
+          {(tab === "input" || tab === "promo") && (
             <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
               <button
-                onClick={() => setYear(year - 1)}
+                onClick={() => handleYearChange(year - 1)}
                 className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+                title="이전 연도"
               >
                 <i className="fa-solid fa-chevron-left text-xs" />
               </button>
-              <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5">
-                <i className="fa-regular fa-calendar-check" />{year}년 평가
+              <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5 whitespace-nowrap">
+                <i className="fa-regular fa-calendar-check" />
+                {tab === "promo" ? `${year}년 승진심사` : `${year}년 평가`}
               </span>
               <button
-                onClick={() => setYear(year + 1)}
+                onClick={() => handleYearChange(year + 1)}
                 className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+                title="다음 연도"
               >
                 <i className="fa-solid fa-chevron-right text-xs" />
               </button>
@@ -726,7 +722,6 @@ export default function App() {
                             className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1.5 ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                           >
                             <span>{d} ({count})</span>
-                            {/* 부서별 1차 평가 진행률 배지 */}
                             {p && (
                               <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
                                 p.isSubmitted ? 'bg-blue-600 text-white' :
@@ -740,7 +735,6 @@ export default function App() {
                         );
                       })}
 
-                      {/* 관리자: 선택된 부서의 제출 취소/해제 버튼 */}
                       {isAdmin && dept !== "전체" && submissionStore[year]?.[dept]?.isSubmitted && (
                         <button
                           onClick={() => handleUnlockDeptSubmission(dept)}
@@ -788,7 +782,6 @@ export default function App() {
                     </button>
                   )}
 
-                  {/* 임시저장 버튼 */}
                   <button
                     onClick={handleSaveAllEvals}
                     disabled={isCurrentYearLocked || (isDeptLeader && isCurrentDeptSubmitted)}
@@ -802,7 +795,6 @@ export default function App() {
                     {isDeptLeader ? '1차 평가 임시저장' : '최종 평가 저장'}
                   </button>
 
-                  {/* 부서장 전용 1차 평가 최종 제출 버튼 */}
                   {isDeptLeader && (
                     <button
                       onClick={handleSubmitDeptEval}
@@ -837,7 +829,15 @@ export default function App() {
             </div>
           )}
 
-          {tab === "promo" && !isDeptLeader && <PromoMatrixTab year={year} employees={filteredEmps} evalStore={evalStore} />}
+          {/* ★ 승진심사 매트릭스에 onYearChange 연결 */}
+          {tab === "promo" && !isDeptLeader && (
+            <PromoMatrixTab
+              year={year}
+              onYearChange={handleYearChange}
+              employees={filteredEmps}
+              evalStore={evalStore}
+            />
+          )}
 
           {tab === "snapshot_master" && isAdmin && (
             <EmployeeMasterTab
