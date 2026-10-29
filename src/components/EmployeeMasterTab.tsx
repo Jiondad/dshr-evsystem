@@ -7,7 +7,7 @@ interface Props {
   year: number;
   onYearChange?: (newYear: number) => void;
   employees: EmployeeSnapshot[];
-  onCellChange: (emp: EmployeeSnapshot, field: keyof EmployeeSnapshot, val: any) => void;
+  onCellChange: (rowId: string, field: keyof EmployeeSnapshot, val: any) => void;
   onAddRow: () => void;
   onDeleteRow: (emp: EmployeeSnapshot) => void;
   onCopyPrevYear: () => void;
@@ -43,15 +43,16 @@ export const EmployeeMasterTab: React.FC<Props> = ({
           if (!cols[0] || !cols[1]) continue;
 
           newParsed.push({
+            _rowId: `${year}_${cols[0]}_${Math.random()}`,
             snapshot_year: year,
             emp_no: cols[0],
             name: cols[1],
             dept: cols[2] || "생산팀",
             position: cols[3] || "사원",
             status: (cols[4] as StatusType) || "재직",
-            birth_date: cols[5] ? cols[5].replace(/\//g, '-') : "",
-            hire_date: cols[6] ? cols[6].replace(/\//g, '-') : "",
-            promo_date: cols[7] ? cols[7].replace(/\//g, '-') : "",
+            birth_date: cols[5] ? cols[5].replace(/\//g, '-') : null,
+            hire_date: cols[6] ? cols[6].replace(/\//g, '-') : null,
+            promo_date: cols[7] ? cols[7].replace(/\//g, '-') : null,
             remarks: cols[8] || ""
           });
         }
@@ -63,12 +64,24 @@ export const EmployeeMasterTab: React.FC<Props> = ({
 
         const sb = getSupabase();
         if (sb) {
-          const { error } = await sb.from("employee_snapshots").upsert(newParsed, { onConflict: "snapshot_year,emp_no" });
+          const cleanParsed = newParsed.map(e => ({
+            snapshot_year: e.snapshot_year,
+            emp_no: e.emp_no,
+            name: e.name,
+            dept: e.dept,
+            position: e.position,
+            status: e.status,
+            birth_date: e.birth_date || null,
+            hire_date: e.hire_date || null,
+            promo_date: e.promo_date || null,
+            remarks: e.remarks
+          }));
+          const { error } = await sb.from("employee_snapshots").upsert(cleanParsed, { onConflict: "snapshot_year,emp_no" });
           if (error) {
             alert("Supabase 적재 오류: " + error.message);
             return;
           }
-          alert(`${year}년 사원 마스터 ${newParsed.length}명이 Supabase DB에 성공적으로 일괄 적재되었습니다.`);
+          alert(`${year}년 사원 마스터 ${cleanParsed.length}명이 Supabase DB에 성공적으로 일괄 적재되었습니다.`);
           window.location.reload();
         } else {
           alert("DB 미연결 상태입니다. DB 설정 후 다시 시도해주세요.");
@@ -172,100 +185,103 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                 </td>
               </tr>
             ) : (
-              employees.map((emp, idx) => (
-                <tr key={`${emp.snapshot_year}-${emp.emp_no || idx}`} className="hover:bg-blue-50/20 transition">
-                  <td className="p-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      value={emp.emp_no || ""}
-                      placeholder="사번 입력"
-                      onChange={e => onCellChange(emp, "emp_no", e.target.value)}
-                      className="w-full px-2 py-1 font-mono text-xs text-slate-800 bg-white border border-slate-200 rounded focus:border-blue-500 focus:outline-none"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      value={emp.name || ""}
-                      placeholder="성명"
-                      onChange={e => onCellChange(emp, "name", e.target.value)}
-                      className="w-full px-1.5 py-0.5 font-bold text-slate-900 bg-transparent focus:bg-white focus:outline-none rounded"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <select
-                      value={emp.dept}
-                      onChange={e => onCellChange(emp, "dept", e.target.value)}
-                      className="w-full px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none rounded"
-                    >
-                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-1.5">
-                    <select
-                      value={emp.position}
-                      onChange={e => onCellChange(emp, "position", e.target.value)}
-                      className="w-full px-1 py-0.5 font-semibold bg-transparent focus:bg-white focus:outline-none rounded"
-                    >
-                      {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-1.5 text-center">
-                    <select
-                      value={emp.status}
-                      onChange={e => onCellChange(emp, "status", e.target.value as StatusType)}
-                      className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                        emp.status === "재직" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="p-1.5 text-center">
-                    <input
-                      type="date"
-                      value={emp.birth_date || ""}
-                      onChange={e => onCellChange(emp, "birth_date", e.target.value)}
-                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
-                    />
-                  </td>
-                  <td className="p-1.5 text-center">
-                    <input
-                      type="date"
-                      value={emp.hire_date || ""}
-                      onChange={e => onCellChange(emp, "hire_date", e.target.value)}
-                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
-                    />
-                  </td>
-                  <td className="p-1.5 text-center">
-                    <input
-                      type="date"
-                      value={emp.promo_date || ""}
-                      onChange={e => onCellChange(emp, "promo_date", e.target.value)}
-                      className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
-                    />
-                  </td>
-                  <td className="p-1.5">
-                    <input
-                      type="text"
-                      value={emp.remarks || ""}
-                      placeholder="비고 / 담당직무"
-                      onChange={e => onCellChange(emp, "remarks", e.target.value)}
-                      className="w-full px-1 py-0.5 text-slate-600 bg-transparent focus:bg-white focus:outline-none rounded"
-                    />
-                  </td>
-                  <td className="p-1.5 text-center">
-                    <button
-                      onClick={() => onDeleteRow(emp)}
-                      className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                      title={`${emp.name || '사원'} 삭제`}
-                    >
-                      <i className="fa-regular fa-trash-can text-sm" />
-                    </button>
-                  </td>
-                </tr>
-              ))
+              employees.map((emp, idx) => {
+                const rowKey = emp._rowId || `row_${emp.snapshot_year}_${emp.emp_no || idx}`;
+                return (
+                  <tr key={rowKey} className="hover:bg-blue-50/20 transition">
+                    <td className="p-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                    <td className="p-1.5">
+                      <input
+                        type="text"
+                        value={emp.emp_no || ""}
+                        placeholder="사번 입력"
+                        onChange={e => onCellChange(rowKey, "emp_no", e.target.value)}
+                        className="w-full px-2 py-1 font-mono text-xs text-slate-800 bg-white border border-slate-200 rounded focus:border-blue-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="p-1.5">
+                      <input
+                        type="text"
+                        value={emp.name || ""}
+                        placeholder="성명"
+                        onChange={e => onCellChange(rowKey, "name", e.target.value)}
+                        className="w-full px-1.5 py-0.5 font-bold text-slate-900 bg-transparent focus:bg-white focus:outline-none rounded"
+                      />
+                    </td>
+                    <td className="p-1.5">
+                      <select
+                        value={emp.dept}
+                        onChange={e => onCellChange(rowKey, "dept", e.target.value)}
+                        className="w-full px-1 py-0.5 bg-transparent focus:bg-white focus:outline-none rounded"
+                      >
+                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </td>
+                    <td className="p-1.5">
+                      <select
+                        value={emp.position}
+                        onChange={e => onCellChange(rowKey, "position", e.target.value)}
+                        className="w-full px-1 py-0.5 font-semibold bg-transparent focus:bg-white focus:outline-none rounded"
+                      >
+                        {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </td>
+                    <td className="p-1.5 text-center">
+                      <select
+                        value={emp.status}
+                        onChange={e => onCellChange(rowKey, "status", e.target.value as StatusType)}
+                        className={`px-2 py-0.5 rounded font-bold text-[11px] ${
+                          emp.status === "재직" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="p-1.5 text-center">
+                      <input
+                        type="date"
+                        value={emp.birth_date || ""}
+                        onChange={e => onCellChange(rowKey, "birth_date", e.target.value)}
+                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      />
+                    </td>
+                    <td className="p-1.5 text-center">
+                      <input
+                        type="date"
+                        value={emp.hire_date || ""}
+                        onChange={e => onCellChange(rowKey, "hire_date", e.target.value)}
+                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      />
+                    </td>
+                    <td className="p-1.5 text-center">
+                      <input
+                        type="date"
+                        value={emp.promo_date || ""}
+                        onChange={e => onCellChange(rowKey, "promo_date", e.target.value)}
+                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      />
+                    </td>
+                    <td className="p-1.5">
+                      <input
+                        type="text"
+                        value={emp.remarks || ""}
+                        placeholder="비고 / 담당직무"
+                        onChange={e => onCellChange(rowKey, "remarks", e.target.value)}
+                        className="w-full px-1 py-0.5 text-slate-600 bg-transparent focus:bg-white focus:outline-none rounded"
+                      />
+                    </td>
+                    <td className="p-1.5 text-center">
+                      <button
+                        onClick={() => onDeleteRow(emp)}
+                        className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        title={`${emp.name || '사원'} 삭제`}
+                      >
+                        <i className="fa-regular fa-trash-can text-sm" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
