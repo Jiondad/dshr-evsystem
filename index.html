@@ -1,1152 +1,790 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>대성스틸 인사평가 및 승진심사 관리시스템</title>
-  <meta name="description" content="대성스틸 임직원 직급별 가중치 자동 환산, 그룹 평가 기준율 실시간 검증 대시보드 및 다년도 승진심사 매트릭스를 제공하는 HR ERP 시스템" />
-  <!-- CDN 스택: React 18, ReactDOM 18, Babel Standalone, Tailwind CSS, FontAwesome 6.4.0, Supabase JS v2 -->
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body {
-      font-family: 'Plus Jakarta Sans', 'Pretendard', -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
-      background-color: #F8FAFC;
-      color: #0F172A;
-    }
-    .tabular-nums {
-      font-variant-numeric: tabular-nums;
-      font-family: 'IBM Plex Mono', monospace;
-    }
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button {
-      opacity: 1;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-slate-900 selection:text-white">
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
   <div id="root"></div>
 
   <script type="text/babel">
-    // ============================================================================
-    // [4. 데이터 영속성 설정] SUPABASE_URL 및 SUPABASE_ANON_KEY 상수 변수
-    // 본인의 Supabase 프로젝트 URL과 ANON KEY를 아래 상수에 입력하면 즉시 클라우드 DB와 연동됩니다.
-    // 비어있거나 오프라인인 경우에도 localStorage를 통해 브라우저에 영구 보존됩니다.
-    // ============================================================================
-    const SUPABASE_URL = "";
-    const SUPABASE_ANON_KEY = "";
+    const { useState, useEffect, useMemo } = React;
 
-    const { useState, useEffect, useMemo, useCallback } = React;
+    const GRADES = ["S", "A", "B", "C", "D"];
+    const GRADE_POINTS = { S: 10, A: 8, B: 6, C: 4, D: 2 };
+    const pointsFor = (g) => (g ? GRADE_POINTS[g] || 0 : 0);
 
-    // 직급별 가중치 테이블
-    // - 임원진(사장, 부사장, 전무, 상무, 이사): 성과 80%, 자기계발 10%, 부하육성 10% (역량 0%)
-    // - 실장 / 부장 / 차장: 역량 30%, 성과 60%, 자기계발 10% (부하육성 0%)
-    // - 과장 / 대리: 역량 60%, 성과 40% (자기계발 0%, 부하육성 0%)
-    // - 주임 / 사원: 역량 70%, 성과 30% (자기계발 0%, 부하육성 0%)
-    function getWeightsByPosition(position) {
-      switch (position) {
-        case '사장':
-        case '부사장':
-        case '전무':
-        case '상무':
-        case '이사':
-          return { groupName: '임원진', competency: 0, performance: 0.8, selfDev: 0.1, subordinateDev: 0.1 };
-        case '실장':
-        case '부장':
-        case '차장':
-          return { groupName: '실장/부장/차장', competency: 0.3, performance: 0.6, selfDev: 0.1, subordinateDev: 0 };
-        case '과장':
-        case '대리':
-          return { groupName: '과장/대리', competency: 0.6, performance: 0.4, selfDev: 0, subordinateDev: 0 };
-        case '주임':
-        case '사원':
-        default:
-          return { groupName: '주임/사원', competency: 0.7, performance: 0.3, selfDev: 0, subordinateDev: 0 };
-      }
+    const GRADE_TARGET_RATE = { S: 5, A: 15, B: 65, C: 10, D: 5 };
+    const recommendedCount = (n, g) => (Math.round(n * (GRADE_TARGET_RATE[g] / 100) * 10) / 10).toFixed(1);
+
+    const DEPARTMENTS = ["관리팀", "영업팀", "생산관리팀", "생산팀"];
+    const POSITIONS = ["사장", "부사장", "전무", "상무", "이사", "실장", "부장", "차장", "과장", "대리", "주임", "사원"];
+
+    const EXEC = { competency: 0, performance: 0.8, selfDev: 0.1, mentoring: 0.1 };
+    const SENIOR = { competency: 0.3, performance: 0.6, selfDev: 0.1, mentoring: 0 };
+    const MID = { competency: 0.6, performance: 0.4, selfDev: 0, mentoring: 0 };
+    const JUNIOR = { competency: 0.7, performance: 0.3, selfDev: 0, mentoring: 0 };
+
+    function weightsFor(position) {
+      if (["사장", "부사장", "전무", "상무", "이사"].includes(position)) return EXEC;
+      if (["실장", "부장", "차장"].includes(position)) return SENIOR;
+      if (["과장", "대리"].includes(position)) return MID;
+      return JUNIOR;
     }
 
-    // 승진 포인트 연계 테이블
-    const GRADE_POINTS = { S: 10, A: 8, B: 6, C: 4, D: 2, '': 0 };
+    function finalScore(position, ev) {
+      const w = weightsFor(position);
+      const n = (v) => (v === "" || v === null || isNaN(v) ? 0 : parseFloat(v));
+      const sum = (n(ev.competency) * w.competency) +
+                  (n(ev.performance) * w.performance) +
+                  (n(ev.selfDev) * w.selfDev) +
+                  (n(ev.mentoring) * w.mentoring);
+      return Math.round((sum + n(ev.adjust)) * 10) / 10;
+    }
 
-    // 그룹 평가 기준율(%)
-    const GRADE_RATIOS = [
-      { grade: 'S', label: 'S등급', ratio: 0.05, percentText: '5%', points: 10 },
-      { grade: 'A', label: 'A등급', ratio: 0.15, percentText: '15%', points: 8 },
-      { grade: 'B', label: 'B등급', ratio: 0.65, percentText: '65%', points: 6 },
-      { grade: 'C', label: 'C등급', ratio: 0.10, percentText: '10%', points: 4 },
-      { grade: 'D', label: 'D등급', ratio: 0.05, percentText: '5%', points: 2 },
+    // 기본 사원 28명 초기값
+    const DEFAULT_EMPLOYEES = [
+      { emp_no: "10011", name: "김종현", dept: "관리팀", position: "실장", birth_date: "1975-02-06", hire_date: "2001-03-12", promo_date: "2024-01-01" },
+      { emp_no: "90005", name: "정승애", dept: "관리팀", position: "과장", birth_date: "1987-08-05", hire_date: "2009-08-06", promo_date: "2025-01-01" },
+      { emp_no: "100007", name: "염지원", dept: "관리팀", position: "과장", birth_date: "1981-08-03", hire_date: "2010-05-25", promo_date: "2025-01-01" },
+      { emp_no: "230003", name: "강현구", dept: "관리팀", position: "사원", birth_date: "1995-01-10", hire_date: "2023-10-01", promo_date: "2023-10-01" },
+      { emp_no: "10023", name: "이영숙", dept: "영업팀", position: "부장", birth_date: "1980-09-24", hire_date: "2001-08-20", promo_date: "2024-01-01" },
+      { emp_no: "130031", name: "유도근", dept: "영업팀", position: "부장", birth_date: "1980-11-16", hire_date: "2010-10-11", promo_date: "2024-01-01" },
+      { emp_no: "140017", name: "김영진", dept: "영업팀", position: "부장", birth_date: "1972-10-19", hire_date: "2014-09-01", promo_date: "2025-01-01" },
+      { emp_no: "90007", name: "우국진", dept: "영업팀", position: "차장", birth_date: "1983-09-21", hire_date: "2009-08-24", promo_date: "2022-01-01" },
+      { emp_no: "150019", name: "김영민", dept: "영업팀", position: "차장", birth_date: "1984-01-25", hire_date: "2007-12-01", promo_date: "2023-01-01" },
+      { emp_no: "220002", name: "박성진", dept: "영업팀", position: "과장", birth_date: "1983-12-11", hire_date: "2022-04-01", promo_date: "2022-04-01" },
+      { emp_no: "180003", name: "김영수", dept: "영업팀", position: "과장", birth_date: "1984-07-19", hire_date: "2018-04-16", promo_date: "2024-01-01" },
+      { emp_no: "160010", name: "배대호", dept: "영업팀", position: "과장", birth_date: "1982-01-05", hire_date: "2016-06-20", promo_date: "2025-01-01" },
+      { emp_no: "210006", name: "김상문", dept: "영업팀", position: "대리", birth_date: "1987-03-24", hire_date: "2021-08-01", promo_date: "2023-01-01" },
+      { emp_no: "180016", name: "윤종길", dept: "생산관리팀", position: "부장", birth_date: "1976-08-27", hire_date: "2018-09-17", promo_date: "2024-01-01" },
+      { emp_no: "150020", name: "김명수", dept: "생산관리팀", position: "차장", birth_date: "1982-12-08", hire_date: "2013-03-04", promo_date: "2023-01-01" },
+      { emp_no: "220005", name: "송병섭", dept: "생산관리팀", position: "대리", birth_date: "1994-06-21", hire_date: "2022-06-01", promo_date: "2024-01-01" },
+      { emp_no: "10022", name: "조원일", dept: "생산팀", position: "부장", birth_date: "1980-07-28", hire_date: "2001-08-16", promo_date: "2024-01-01" },
+      { emp_no: "80009", name: "서재천", dept: "생산팀", position: "차장", birth_date: "1982-02-12", hire_date: "2008-09-01", promo_date: "2023-01-01" },
+      { emp_no: "100010", name: "문정식", dept: "생산팀", position: "차장", birth_date: "1983-02-09", hire_date: "2010-09-01", promo_date: "2025-01-01" },
+      { emp_no: "110008", name: "정태현", dept: "생산팀", position: "과장", birth_date: "1981-06-15", hire_date: "2011-09-01", promo_date: "2024-01-01" },
+      { emp_no: "130005", name: "안상호", dept: "생산팀", position: "과장", birth_date: "1981-12-07", hire_date: "2013-03-01", promo_date: "2024-01-01" },
+      { emp_no: "150005", name: "송성민", dept: "생산팀", position: "과장", birth_date: "1985-05-24", hire_date: "2015-03-09", promo_date: "2024-01-01" },
+      { emp_no: "170001", name: "김동훈", dept: "생산팀", position: "과장", birth_date: "1985-08-15", hire_date: "2017-01-02", promo_date: "2024-01-01" },
+      { emp_no: "170014", name: "김영호", dept: "생산팀", position: "과장", birth_date: "1987-10-18", hire_date: "2017-08-01", promo_date: "2025-01-01" },
+      { emp_no: "180018", name: "문태환", dept: "생산팀", position: "과장", birth_date: "1987-03-04", hire_date: "2018-09-17", promo_date: "2025-01-01" },
+      { emp_no: "210004", name: "장민석", dept: "생산팀", position: "대리", birth_date: "1994-06-03", hire_date: "2021-06-01", promo_date: "2024-01-01" },
+      { emp_no: "230001", name: "김형진", dept: "생산팀", position: "주임", birth_date: "1994-07-28", hire_date: "2023-04-01", promo_date: "2025-01-01" },
+      { emp_no: "230005", name: "이현규", dept: "생산팀", position: "사원", birth_date: "1998-03-10", hire_date: "2023-12-01", promo_date: "2023-12-01" }
     ];
 
-    // 산출 공식: 최종 환산점수 = (역량×역량비율) + (성과×성과비율) + (자기계발×자기계발비율) + (부하육성×부하육성비율) + 가감점
-    function calculateFinalScore(position, competency, performance, selfDev, subordinateDev, bonusPenalty) {
-      const weights = getWeightsByPosition(position);
-      const compVal = weights.competency > 0 ? Number(competency || 0) : 0;
-      const perfVal = weights.performance > 0 ? Number(performance || 0) : 0;
-      const selfVal = weights.selfDev > 0 ? Number(selfDev || 0) : 0;
-      const subVal = weights.subordinateDev > 0 ? Number(subordinateDev || 0) : 0;
-      const bonusVal = Number(bonusPenalty || 0);
+    const gradeColor = {
+      S: "bg-blue-600 text-white",
+      A: "bg-emerald-600 text-white",
+      B: "bg-indigo-500 text-white",
+      C: "bg-amber-500 text-white",
+      D: "bg-rose-500 text-white",
+    };
 
-      const rawTotal =
-        compVal * weights.competency +
-        perfVal * weights.performance +
-        selfVal * weights.selfDev +
-        subVal * weights.subordinateDev +
-        bonusVal;
+    function App() {
+      const [sbConfig, setSbConfig] = useState(() => ({
+        url: localStorage.getItem("ds_sb_url") || "",
+        key: localStorage.getItem("ds_sb_key") || ""
+      }));
+      const [supabaseClient, setSupabaseClient] = useState(null);
+      const [isConfigOpen, setIsConfigOpen] = useState(false);
+      const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+      const [editingEmp, setEditingEmp] = useState(null);
 
-      return Math.round(rawTotal * 10) / 10;
-    }
+      const [year, setYear] = useState(2025);
+      const [dept, setDept] = useState("전체");
+      const [tab, setTab] = useState("input");
+      const [searchQuery, setSearchQuery] = useState("");
 
-    // [5. 초기 실무 데이터 - 대성스틸 실제 28명 명단]
-    const INITIAL_EMPLOYEES = [
-      // 관리팀 (4명)
-      { emp_no: 'DS-1001', name: '김종현', dept: '관리팀', position: '실장', last_promotion_date: '2021-03-01' },
-      { emp_no: 'DS-1002', name: '정승애', dept: '관리팀', position: '과장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-1003', name: '염지원', dept: '관리팀', position: '과장', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-1004', name: '강현구', dept: '관리팀', position: '사원', last_promotion_date: '2024-01-15' },
-      // 영업팀 (9명)
-      { emp_no: 'DS-2001', name: '이영숙', dept: '영업팀', position: '부장', last_promotion_date: '2020-03-01' },
-      { emp_no: 'DS-2002', name: '유도근', dept: '영업팀', position: '부장', last_promotion_date: '2021-03-01' },
-      { emp_no: 'DS-2003', name: '김영진', dept: '영업팀', position: '부장', last_promotion_date: '2021-09-01' },
-      { emp_no: 'DS-2004', name: '우국진', dept: '영업팀', position: '차장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-2005', name: '김영민', dept: '영업팀', position: '차장', last_promotion_date: '2022-09-01' },
-      { emp_no: 'DS-2006', name: '박성진', dept: '영업팀', position: '과장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-2007', name: '김영수', dept: '영업팀', position: '과장', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-2008', name: '배대호', dept: '영업팀', position: '과장', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-2009', name: '김상문', dept: '영업팀', position: '대리', last_promotion_date: '2023-09-01' },
-      // 생산관리팀 (3명)
-      { emp_no: 'DS-3001', name: '윤종길', dept: '생산관리팀', position: '부장', last_promotion_date: '2020-03-01' },
-      { emp_no: 'DS-3002', name: '김명수', dept: '생산관리팀', position: '차장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-3003', name: '송병섭', dept: '생산관리팀', position: '대리', last_promotion_date: '2023-03-01' },
-      // 생산팀 (12명)
-      { emp_no: 'DS-4001', name: '조원일', dept: '생산팀', position: '부장', last_promotion_date: '2019-03-01' },
-      { emp_no: 'DS-4002', name: '서재천', dept: '생산팀', position: '차장', last_promotion_date: '2021-03-01' },
-      { emp_no: 'DS-4003', name: '문정식', dept: '생산팀', position: '차장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-4004', name: '정태현', dept: '생산팀', position: '과장', last_promotion_date: '2021-09-01' },
-      { emp_no: 'DS-4005', name: '안상호', dept: '생산팀', position: '과장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-4006', name: '송성민', dept: '생산팀', position: '과장', last_promotion_date: '2022-03-01' },
-      { emp_no: 'DS-4007', name: '김동훈', dept: '생산팀', position: '과장', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-4008', name: '김영호', dept: '생산팀', position: '과장', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-4009', name: '문태환', dept: '생산팀', position: '과장', last_promotion_date: '2023-09-01' },
-      { emp_no: 'DS-4010', name: '장민석', dept: '생산팀', position: '대리', last_promotion_date: '2023-03-01' },
-      { emp_no: 'DS-4011', name: '김형진', dept: '생산팀', position: '주임', last_promotion_date: '2023-09-01' },
-      { emp_no: 'DS-4012', name: '이현규', dept: '생산팀', position: '사원', last_promotion_date: '2024-03-01' },
-    ];
-
-    function makeEval(eval_year, emp, comp, perf, selfDev, subDev, bonus, reason, grade, remarks) {
-      const weights = getWeightsByPosition(emp.position);
-      const c = weights.competency > 0 ? comp : null;
-      const p = weights.performance > 0 ? perf : null;
-      const s = weights.selfDev > 0 ? selfDev : null;
-      const sub = weights.subordinateDev > 0 ? subDev : null;
-      const finalScore = calculateFinalScore(emp.position, c, p, s, sub, bonus);
-      return {
-        eval_year,
-        emp_no: emp.emp_no,
-        competency_score: c,
-        performance_score: p,
-        self_dev_score: s,
-        subordinate_dev_score: sub,
-        bonus_penalty_score: bonus,
-        bonus_penalty_reason: reason,
-        final_score: finalScore,
-        final_grade: grade,
-        promotion_points: GRADE_POINTS[grade] || 0,
-        remarks,
-      };
-    }
-
-    function buildInitialEvaluations() {
-      const empMap = Object.fromEntries(INITIAL_EMPLOYEES.map((e) => [e.emp_no, e]));
-      const data2025 = [
-        makeEval(2025, empMap['DS-1001'], 92, 95, 90, null, 2.0, '전사 ERP 고도화 및 내부통제 혁신 주도', 'S', '핵심 관리역량 최우수 / 경영지원 총괄'),
-        makeEval(2025, empMap['DS-1002'], 88, 90, null, null, 1.0, '결산 자동화 프로세스 단축', 'A', '회계·세무 실무 핵심 인재'),
-        makeEval(2025, empMap['DS-1003'], 82, 84, null, null, 0, '', 'B', '노무 및 총무 안정적 운영'),
-        makeEval(2025, empMap['DS-1004'], 79, 80, null, null, 0, '', 'B', '신규 입사 후 빠른 업무 적응'),
-        makeEval(2025, empMap['DS-2001'], 90, 93, 88, null, 1.5, '신규 대형 철강 고객사 3곳 수주 달성', 'A', '영업1파트 매출 목표 118% 달성'),
-        makeEval(2025, empMap['DS-2002'], 84, 85, 82, null, 0, '', 'B', '기존 거래처 여신관리 양호'),
-        makeEval(2025, empMap['DS-2003'], 81, 83, 80, null, 0, '', 'B', '내수 유통망 안정적 유지'),
-        makeEval(2025, empMap['DS-2004'], 89, 91, 86, null, 1.0, '자동차 부품향 특수강 매출 확대', 'A', '차기 부장 승진 핵심 후보'),
-        makeEval(2025, empMap['DS-2005'], 80, 82, 78, null, 0, '', 'B', '영남권 거점 거래처 관리'),
-        makeEval(2025, empMap['DS-2006'], 83, 85, null, null, 0.5, '미수채권 조기 회수 기여', 'B', '채권 리스크 관리 우수'),
-        makeEval(2025, empMap['DS-2007'], 78, 79, null, null, 0, '', 'B', '수주 납기 대응 준수'),
-        makeEval(2025, empMap['DS-2008'], 71, 68, null, null, -1.0, '분반기 매출 목표 미달성', 'C', '신규 거래선 발굴 독려 필요'),
-        makeEval(2025, empMap['DS-2009'], 82, 81, null, null, 0, '', 'B', '영업지원 및 견적 응대 우수'),
-        makeEval(2025, empMap['DS-3001'], 85, 86, 84, null, 0.5, '원자재 재고 회전율 12% 개선', 'B', '수급 계획 총괄 안정적 수행'),
-        makeEval(2025, empMap['DS-3002'], 88, 90, 87, null, 1.0, '코일 슬리팅 공정 리드타임 단축', 'A', '생산계획 최적화 우수'),
-        makeEval(2025, empMap['DS-3003'], 80, 82, null, null, 0, '', 'B', '출하 배차 및 납기율 관리 양호'),
-        makeEval(2025, empMap['DS-4001'], 84, 86, 82, null, 0.5, '무재해 사업장 안전보건 목표 달성', 'B', '현장 안전 및 설비 총괄'),
-        makeEval(2025, empMap['DS-4002'], 82, 84, 80, null, 0, '', 'B', '1공장 라인 가동률 안정 유지'),
-        makeEval(2025, empMap['DS-4003'], 79, 81, 78, null, 0, '', 'B', '2공장 설비 예방보전 수행'),
-        makeEval(2025, empMap['DS-4004'], 84, 85, null, null, 0.5, '불량률 절감 분임조 우수 제안', 'B', '품질 개선 기여도 높음'),
-        makeEval(2025, empMap['DS-4005'], 81, 80, null, null, 0, '', 'B', '절단 라인 공정 표준화 준수'),
-        makeEval(2025, empMap['DS-4006'], 77, 78, null, null, 0, '', 'B', '교대 근무 조장 역할 수행'),
-        makeEval(2025, empMap['DS-4007'], 72, 70, null, null, -0.5, '설비 점검 기록 누락 주의', 'C', '일상 점검 프로세스 재교육'),
-        makeEval(2025, empMap['DS-4008'], 80, 81, null, null, 0, '', 'B', '가공 라인 생산성 목표 달성'),
-        makeEval(2025, empMap['DS-4009'], 78, 79, null, null, 0, '', 'B', '포장 및 출하 대기 공정 관리'),
-        makeEval(2025, empMap['DS-4010'], 82, 83, null, null, 0, '', 'B', '현장 계측 및 품질 검수 성실'),
-        makeEval(2025, empMap['DS-4011'], 73, 69, null, null, -1.0, '자재 스크랩 관리 기준 미흡', 'C', '원단위 손실율 개선 코칭 중'),
-        makeEval(2025, empMap['DS-4012'], 64, 62, null, null, -1.5, '안전수칙 미준수 경고 1회', 'D', '안전교육 재이수 및 집중 멘토링 대상'),
-      ];
-
-      const grades2024 = {
-        'DS-1001': { grade: 'A', comp: 90, perf: 91, self: 88, bonus: 1.0, reason: '예산 통제 우수', remarks: '관리부문 우수' },
-        'DS-1002': { grade: 'A', comp: 87, perf: 89, self: 85, bonus: 0.5, reason: '세무조사 완벽 대응', remarks: '승진 포인트 누적 우수' },
-        'DS-1003': { grade: 'B', comp: 80, perf: 82, self: 80, bonus: 0, reason: '', remarks: '보통' },
-        'DS-1004': { grade: 'B', comp: 76, perf: 78, self: 75, bonus: 0, reason: '', remarks: '수습 평가 양호' },
-        'DS-2001': { grade: 'S', comp: 93, perf: 95, self: 90, bonus: 2.0, reason: '연간 최대 영업이익 달성', remarks: '최우수 영업 관리자' },
-        'DS-2002': { grade: 'B', comp: 82, perf: 84, self: 80, bonus: 0, reason: '', remarks: '안정적 실적' },
-        'DS-2003': { grade: 'B', comp: 80, perf: 81, self: 79, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2004': { grade: 'A', comp: 88, perf: 90, self: 86, bonus: 1.0, reason: '신규 거래선 확대', remarks: '고성과 유지' },
-        'DS-2005': { grade: 'B', comp: 79, perf: 81, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2006': { grade: 'B', comp: 82, perf: 83, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2007': { grade: 'B', comp: 78, perf: 80, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2008': { grade: 'B', comp: 76, perf: 77, self: 75, bonus: 0, reason: '', remarks: '보통' },
-        'DS-2009': { grade: 'B', comp: 81, perf: 80, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-3001': { grade: 'A', comp: 88, perf: 89, self: 85, bonus: 1.0, reason: '스마트공장 MES 안정화', remarks: '공정관리 혁신' },
-        'DS-3002': { grade: 'B', comp: 83, perf: 85, self: 82, bonus: 0, reason: '', remarks: '양호' },
-        'DS-3003': { grade: 'B', comp: 79, perf: 80, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4001': { grade: 'B', comp: 83, perf: 85, self: 82, bonus: 0, reason: '', remarks: '안정적 공장 운영' },
-        'DS-4002': { grade: 'B', comp: 81, perf: 82, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4003': { grade: 'C', comp: 72, perf: 71, self: 70, bonus: -0.5, reason: '라인 정지 시간 초과', remarks: '설비 개선 조치 완료' },
-        'DS-4004': { grade: 'A', comp: 87, perf: 88, self: 85, bonus: 1.0, reason: '품질 분임조 표창', remarks: '차장 승진 후보군' },
-        'DS-4005': { grade: 'B', comp: 80, perf: 81, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4006': { grade: 'B', comp: 78, perf: 79, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4007': { grade: 'B', comp: 77, perf: 76, self: 75, bonus: 0, reason: '', remarks: '보통' },
-        'DS-4008': { grade: 'B', comp: 80, perf: 80, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4009': { grade: 'C', comp: 71, perf: 70, self: 70, bonus: 0, reason: '', remarks: '업무 숙련도 향상 필요' },
-        'DS-4010': { grade: 'B', comp: 81, perf: 82, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4011': { grade: 'B', comp: 76, perf: 75, self: 75, bonus: 0, reason: '', remarks: '보통' },
-        'DS-4012': { grade: 'C', comp: 70, perf: 68, self: 68, bonus: 0, reason: '', remarks: '신입 현장 직무 교육' },
-      };
-
-      const grades2023 = {
-        'DS-1001': { grade: 'A', comp: 89, perf: 90, self: 87, bonus: 1.0, reason: '자금 운용 수익률 제고', remarks: '우수' },
-        'DS-1002': { grade: 'B', comp: 83, perf: 84, self: 82, bonus: 0, reason: '', remarks: '양호' },
-        'DS-1003': { grade: 'B', comp: 81, perf: 80, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-1004': { grade: 'B', comp: 75, perf: 75, self: 75, bonus: 0, reason: '', remarks: '인턴/신입 전환' },
-        'DS-2001': { grade: 'A', comp: 89, perf: 91, self: 87, bonus: 1.0, reason: '주요 고객사 장기계약 체결', remarks: '우수' },
-        'DS-2002': { grade: 'A', comp: 87, perf: 88, self: 85, bonus: 0.5, reason: '신규 유통망 개척', remarks: '우수' },
-        'DS-2003': { grade: 'B', comp: 80, perf: 82, self: 79, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2004': { grade: 'A', comp: 87, perf: 89, self: 85, bonus: 0.5, reason: '고부가 강종 판매 확대', remarks: '3개년 연속 우수' },
-        'DS-2005': { grade: 'B', comp: 78, perf: 80, self: 77, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2006': { grade: 'B', comp: 81, perf: 82, self: 80, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2007': { grade: 'C', comp: 72, perf: 70, self: 70, bonus: -0.5, reason: '상반기 목표 미달', remarks: '하반기 만회' },
-        'DS-2008': { grade: 'B', comp: 77, perf: 78, self: 76, bonus: 0, reason: '', remarks: '양호' },
-        'DS-2009': { grade: 'B', comp: 80, perf: 79, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-3001': { grade: 'B', comp: 83, perf: 84, self: 82, bonus: 0, reason: '', remarks: '양호' },
-        'DS-3002': { grade: 'A', comp: 87, perf: 88, self: 85, bonus: 0.5, reason: '자재 수율 개선', remarks: '우수' },
-        'DS-3003': { grade: 'B', comp: 78, perf: 79, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4001': { grade: 'S', comp: 92, perf: 94, self: 90, bonus: 1.5, reason: '신규 슬리터 라인 조기 안정화', remarks: '최우수 공장장 표창' },
-        'DS-4002': { grade: 'B', comp: 80, perf: 82, self: 79, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4003': { grade: 'B', comp: 78, perf: 79, self: 77, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4004': { grade: 'B', comp: 83, perf: 84, self: 82, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4005': { grade: 'B', comp: 79, perf: 80, self: 78, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4006': { grade: 'B', comp: 77, perf: 78, self: 76, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4007': { grade: 'B', comp: 76, perf: 77, self: 75, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4008': { grade: 'C', comp: 71, perf: 70, self: 70, bonus: 0, reason: '', remarks: '보통' },
-        'DS-4009': { grade: 'B', comp: 77, perf: 78, self: 76, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4010': { grade: 'B', comp: 80, perf: 81, self: 79, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4011': { grade: 'B', comp: 75, perf: 76, self: 75, bonus: 0, reason: '', remarks: '양호' },
-        'DS-4012': { grade: 'C', comp: 69, perf: 68, self: 68, bonus: 0, reason: '', remarks: '입사 초기' },
-      };
-
-      const map2023 = {};
-      const map2024 = {};
-      const map2025 = {};
-
-      for (const emp of INITIAL_EMPLOYEES) {
-        const g23 = grades2023[emp.emp_no];
-        map2023[emp.emp_no] = makeEval(2023, emp, g23.comp, g23.perf, g23.self, null, g23.bonus, g23.reason, g23.grade, g23.remarks);
-        const g24 = grades2024[emp.emp_no];
-        map2024[emp.emp_no] = makeEval(2024, emp, g24.comp, g24.perf, g24.self, null, g24.bonus, g24.reason, g24.grade, g24.remarks);
-      }
-      for (const rec of data2025) {
-        map2025[rec.emp_no] = rec;
-      }
-
-      return { 2023: map2023, 2024: map2024, 2025: map2025 };
-    }
-
-    const STORAGE_KEY = 'daesung_steel_hr_evaluations_v1';
-    const SUPABASE_CONFIG_KEY = 'daesung_steel_supabase_config_v1';
-    const DEPARTMENTS = ['전체 부서', '관리팀', '영업팀', '생산관리팀', '생산팀'];
-
-    function StandaloneApp() {
-      const [evalYear, setEvalYear] = useState(2025);
-      const [selectedDept, setSelectedDept] = useState('전체 부서');
-      const [activeTab, setActiveTab] = useState('input'); // 'input' | 'matrix'
-      const [searchQuery, setSearchQuery] = useState('');
-      const [showWeightGuide, setShowWeightGuide] = useState(false);
-      const [showDbModal, setShowDbModal] = useState(false);
-      const [syncNotice, setSyncNotice] = useState('');
-
-      const [sbConfig, setSbConfig] = useState(() => {
-        try {
-          const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            return {
-              url: parsed.url || SUPABASE_URL,
-              anonKey: parsed.anonKey || SUPABASE_ANON_KEY,
-            };
-          }
-        } catch (e) {}
-        return { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY };
+      const [employees, setEmployees] = useState(() => {
+        const saved = localStorage.getItem("ds_emp_master_v1");
+        return saved ? JSON.parse(saved) : DEFAULT_EMPLOYEES;
       });
 
-      const [evaluationsByYear, setEvaluationsByYear] = useState(() => {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) {
-            return JSON.parse(raw);
-          }
-        } catch (e) {}
-        return buildInitialEvaluations();
+      const [evalStore, setEvalStore] = useState(() => {
+        const saved = localStorage.getItem("ds_eval_store_v1");
+        return saved ? JSON.parse(saved) : {};
       });
 
-      const supabaseClient = useMemo(() => {
-        if (sbConfig.url && sbConfig.anonKey && window.supabase) {
+      // Supabase 클라이언트 초기화
+      useEffect(() => {
+        if (sbConfig.url && sbConfig.key) {
           try {
-            return window.supabase.createClient(sbConfig.url, sbConfig.anonKey);
-          } catch (e) {
-            return null;
+            const client = window.supabase.createClient(sbConfig.url, sbConfig.key);
+            setSupabaseClient(client);
+          } catch(e) {
+            console.error("Supabase Init Error", e);
           }
         }
-        return null;
-      }, [sbConfig.url, sbConfig.anonKey]);
+      }, [sbConfig]);
 
-      // localStorage 자동 저장
-      useEffect(() => {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(evaluationsByYear));
-        } catch (e) {}
-      }, [evaluationsByYear]);
-
-      // Supabase 초기 데이터 로드 (설정된 경우)
+      // Supabase에서 사원 마스터 & 평가 데이터 동기화
       useEffect(() => {
         if (!supabaseClient) return;
-        let cancelled = false;
-        (async () => {
-          try {
-            const { data, error } = await supabaseClient
-              .from('annual_evaluations')
-              .select('*');
-            if (!error && data && data.length > 0 && !cancelled) {
-              setEvaluationsByYear((prev) => {
-                const next = { ...prev };
-                for (const row of data) {
-                  const y = Number(row.eval_year);
-                  if (!next[y]) next[y] = {};
-                  next[y][row.emp_no] = {
-                    eval_year: y,
-                    emp_no: row.emp_no,
-                    competency_score: row.competency_score !== null ? Number(row.competency_score) : null,
-                    performance_score: row.performance_score !== null ? Number(row.performance_score) : null,
-                    self_dev_score: row.self_dev_score !== null ? Number(row.self_dev_score) : null,
-                    subordinate_dev_score: row.subordinate_dev_score !== null ? Number(row.subordinate_dev_score) : null,
-                    bonus_penalty_score: Number(row.bonus_penalty_score || 0),
-                    bonus_penalty_reason: row.bonus_penalty_reason || '',
-                    final_score: Number(row.final_score || 0),
-                    final_grade: row.final_grade || '',
-                    promotion_points: Number(row.promotion_points || 0),
-                    remarks: row.remarks || '',
-                  };
-                }
-                return next;
-              });
-              setSyncNotice('Supabase DB 동기화 완료');
-              setTimeout(() => setSyncNotice(''), 3000);
-            }
-          } catch (err) {}
-        })();
-        return () => { cancelled = true; };
-      }, [supabaseClient]);
 
-      const ensureYearData = useCallback((year) => {
-        if (evaluationsByYear[year]) return evaluationsByYear[year];
-        const map = {};
-        for (const emp of INITIAL_EMPLOYEES) {
-          const weights = getWeightsByPosition(emp.position);
-          map[emp.emp_no] = {
-            eval_year: year,
-            emp_no: emp.emp_no,
-            competency_score: weights.competency > 0 ? 80 : null,
-            performance_score: weights.performance > 0 ? 80 : null,
-            self_dev_score: weights.selfDev > 0 ? 80 : null,
-            subordinate_dev_score: weights.subordinateDev > 0 ? 80 : null,
-            bonus_penalty_score: 0,
-            bonus_penalty_reason: '',
-            final_score: calculateFinalScore(emp.position, 80, 80, 80, 80, 0),
-            final_grade: 'B',
-            promotion_points: 6,
-            remarks: '',
-          };
-        }
-        return map;
-      }, [evaluationsByYear]);
-
-      const currentYearMap = useMemo(() => ensureYearData(evalYear), [ensureYearData, evalYear]);
-
-      const upsertToSupabase = useCallback(async (record) => {
-        if (!supabaseClient) return;
-        try {
-          await supabaseClient.from('annual_evaluations').upsert(
-            {
-              eval_year: record.eval_year,
-              emp_no: record.emp_no,
-              competency_score: record.competency_score,
-              performance_score: record.performance_score,
-              self_dev_score: record.self_dev_score,
-              subordinate_dev_score: record.subordinate_dev_score,
-              bonus_penalty_score: record.bonus_penalty_score,
-              bonus_penalty_reason: record.bonus_penalty_reason,
-              final_score: record.final_score,
-              final_grade: record.final_grade,
-              promotion_points: record.promotion_points,
-              remarks: record.remarks,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'eval_year,emp_no' }
-          );
-        } catch (e) {}
-      }, [supabaseClient]);
-
-      const handleUpdateRecord = useCallback((emp, patch) => {
-        setEvaluationsByYear((prev) => {
-          const yearMap = { ...(prev[evalYear] || ensureYearData(evalYear)) };
-          const existing = yearMap[emp.emp_no];
-          const updated = { ...existing, ...patch };
-          updated.final_score = calculateFinalScore(
-            emp.position,
-            updated.competency_score,
-            updated.performance_score,
-            updated.self_dev_score,
-            updated.subordinate_dev_score,
-            updated.bonus_penalty_score
-          );
-          updated.promotion_points = GRADE_POINTS[updated.final_grade] || 0;
-          yearMap[emp.emp_no] = updated;
-          upsertToSupabase(updated);
-          return { ...prev, [evalYear]: yearMap };
-        });
-      }, [evalYear, ensureYearData, upsertToSupabase]);
-
-      const filteredEmployees = useMemo(() => {
-        return INITIAL_EMPLOYEES.filter((emp) => {
-          const matchDept = selectedDept === '전체 부서' || emp.dept === selectedDept;
-          const q = searchQuery.trim().toLowerCase();
-          const matchQuery = !q || emp.name.toLowerCase().includes(q) || emp.emp_no.toLowerCase().includes(q) || emp.position.toLowerCase().includes(q);
-          return matchDept && matchQuery;
-        });
-      }, [selectedDept, searchQuery]);
-
-      // 대시보드 집계 (현재 필터링된 대상 인원 기준)
-      const dashboardStats = useMemo(() => {
-        const targetCount = filteredEmployees.length;
-        const counts = { S: 0, A: 0, B: 0, C: 0, D: 0 };
-        let assignedCount = 0;
-
-        for (const emp of filteredEmployees) {
-          const rec = currentYearMap[emp.emp_no];
-          if (rec && rec.final_grade && counts[rec.final_grade] !== undefined) {
-            counts[rec.final_grade] += 1;
-            assignedCount += 1;
+        // 사원 마스터 로드
+        supabaseClient.from("employees").select("*").eq("is_active", true).order("emp_no").then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setEmployees(data);
+            localStorage.setItem("ds_emp_master_v1", JSON.stringify(data));
+          } else if (data && data.length === 0) {
+            // DB가 비어있다면 초기 28명 일괄 등록
+            supabaseClient.from("employees").upsert(DEFAULT_EMPLOYEES).then(() => {});
           }
-        }
-
-        const assignedRate = targetCount > 0 ? ((assignedCount / targetCount) * 100).toFixed(1) : '0.0';
-        const cards = GRADE_RATIOS.map((g) => {
-          const currentCount = counts[g.grade];
-          const currentRatio = targetCount > 0 ? ((currentCount / targetCount) * 100).toFixed(1) : '0.0';
-          const recommendedExact = (targetCount * g.ratio).toFixed(1);
-          const recommendedRounded = Math.round(targetCount * g.ratio);
-          const isExceeded = currentCount > recommendedRounded;
-          return {
-            ...g,
-            currentCount,
-            currentRatio,
-            recommendedExact,
-            recommendedRounded,
-            isExceeded,
-          };
         });
 
-        return { targetCount, assignedCount, assignedRate, cards };
-      }, [filteredEmployees, currentYearMap]);
+        // 당해 연도 평가 데이터 로드
+        supabaseClient.from("annual_evaluations").select("*").eq("eval_year", year).then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            const loaded: Record<string, any> = {};
+            data.forEach(r => {
+              loaded[r.emp_no] = {
+                competency: r.comp_score ?? "",
+                performance: r.perf_score ?? "",
+                selfDev: r.self_dev_score ?? "",
+                mentoring: r.leadership_score ?? "",
+                adjust: r.adj_score ?? "",
+                adjustReason: r.adj_reason ?? "",
+                grade: r.final_grade ?? "",
+                note: r.remarks ?? ""
+              };
+            });
+            setEvalStore(prev => ({ ...prev, [year]: loaded }));
+          }
+        });
+      }, [supabaseClient, year]);
 
-      const handleSyncAllToSupabase = async () => {
+      // 브라우저 캐시 보존
+      useEffect(() => {
+        localStorage.setItem("ds_emp_master_v1", JSON.stringify(employees));
+      }, [employees]);
+
+      useEffect(() => {
+        localStorage.setItem("ds_eval_store_v1", JSON.stringify(evalStore));
+      }, [evalStore]);
+
+      // 필터링된 사원 목록
+      const filteredEmps = useMemo(() => {
+        return employees.filter(e => {
+          const matchDept = dept === "전체" || e.dept === dept;
+          const matchSearch = searchQuery === "" || 
+            e.name.includes(searchQuery) || 
+            e.emp_no.includes(searchQuery) || 
+            e.position.includes(searchQuery);
+          return matchDept && matchSearch;
+        });
+      }, [employees, dept, searchQuery]);
+
+      // 평가 집계 통계
+      const currentYearEvals = evalStore[year] || {};
+      const counts = useMemo(() => {
+        const c = { S: 0, A: 0, B: 0, C: 0, D: 0 };
+        filteredEmps.forEach(e => {
+          const g = currentYearEvals[e.emp_no]?.grade;
+          if (g && c[g] !== undefined) c[g]++;
+        });
+        return c;
+      }, [filteredEmps, currentYearEvals]);
+
+      const totalCount = filteredEmps.length;
+      const gradedTotal = GRADES.reduce((s, g) => s + counts[g], 0);
+      const getPct = (c) => (totalCount > 0 ? Math.round((c / totalCount) * 1000) / 10 : 0);
+
+      // 평가 점수 입력 핸들러
+      const handleCellChange = (empNo, field, value) => {
+        setEvalStore(prev => {
+          const yData = prev[year] || {};
+          const empEval = yData[empNo] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
+          const updatedEval = { ...empEval, [field]: value };
+          return { ...prev, [year]: { ...yData, [empNo]: updatedEval } };
+        });
+      };
+
+      // 전체 평가 데이터 Supabase 저장
+      const handleSaveAll = async () => {
         if (!supabaseClient) {
-          setShowDbModal(true);
+          alert("Supabase 설정이 등록되지 않아 로컬 브라우저에만 저장되었습니다.");
           return;
         }
-        const rows = Object.values(currentYearMap);
-        const { error } = await supabaseClient.from('annual_evaluations').upsert(rows, { onConflict: 'eval_year,emp_no' });
-        if (!error) {
-          setSyncNotice(evalYear + '년 평가 데이터 ' + rows.length + '건 Supabase 저장 완료');
-          setTimeout(() => setSyncNotice(''), 3000);
+        const records = filteredEmps.map(e => {
+          const ev = currentYearEvals[e.emp_no] || {};
+          const fScore = finalScore(e.position, ev);
+          const pPoints = pointsFor(ev.grade);
+          return {
+            eval_year: year,
+            emp_no: e.emp_no,
+            comp_score: ev.competency === "" ? null : ev.competency,
+            perf_score: ev.performance === "" ? null : ev.performance,
+            self_dev_score: ev.selfDev === "" ? null : ev.selfDev,
+            leadership_score: ev.mentoring === "" ? null : ev.mentoring,
+            adj_score: ev.adjust === "" ? null : ev.adjust,
+            adj_reason: ev.adjustReason || null,
+            final_score: fScore,
+            final_grade: ev.grade || null,
+            promo_points: pPoints,
+            remarks: ev.note || null
+          };
+        });
+
+        const { error } = await supabaseClient.from("annual_evaluations").upsert(records, { onConflict: "eval_year,emp_no" });
+        if (error) {
+          alert("저장 실패: " + error.message);
         } else {
-          setSyncNotice('Supabase 저장 오류: ' + error.message);
-          setTimeout(() => setSyncNotice(''), 4000);
+          alert("Supabase에 " + records.length + "명의 평가 데이터가 안전하게 저장되었습니다.");
         }
       };
 
-      const handleResetData = () => {
-        const initial = buildInitialEvaluations();
-        setEvaluationsByYear(initial);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-        setSyncNotice('초기 실무 데이터(28명)로 복원되었습니다.');
-        setTimeout(() => setSyncNotice(''), 3000);
+      // 사원 마스터 저장/수정 핸들러
+      const handleSaveEmployee = async (empData) => {
+        // 중복 사번 체크 (신규 등록 시)
+        if (!editingEmp && employees.some(e => e.emp_no === empData.emp_no)) {
+          alert("이미 존재하는 사번입니다.");
+          return;
+        }
+
+        let updated;
+        if (editingEmp) {
+          updated = employees.map(e => e.emp_no === editingEmp.emp_no ? empData : e);
+        } else {
+          updated = [...employees, empData];
+        }
+        setEmployees(updated);
+
+        if (supabaseClient) {
+          await supabaseClient.from("employees").upsert(empData);
+        }
+
+        setIsEmpModalOpen(false);
+        setEditingEmp(null);
       };
 
       return (
-        <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-          {/* 상단 헤더 바 */}
-          <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30">
-            <div className="max-w-[1600px] mx-auto px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
-                  <i className="fa-solid fa-industry text-sm"></i>
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold tracking-tight text-white whitespace-nowrap">
-                    대성스틸 인사평가 및 승진심사 관리시스템
-                  </h1>
-                  <p className="text-xs text-slate-400">
-                    대표이사 최종 결정 원점수 기반 직급별 가중치 자동 환산 · 3개년 승진심사 누적 포인트 연동
-                  </p>
-                </div>
+        <div className="max-w-[1550px] mx-auto p-6 space-y-6">
+          {/* 상단 네비게이션 헤더 */}
+          <header className="bg-slate-900 text-white rounded-xl p-4 shadow-md flex flex-wrap justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="p-2 rounded bg-blue-600 text-white font-bold"><i className="fa-solid fa-users-gear"></i></span>
+              <div>
+                <h1 className="text-lg font-bold tracking-tight">대성스틸 인사평가 및 승진심사 관리시스템</h1>
+                <p className="text-xs text-slate-400">대표이사 최종 원점수 환산 및 그룹 평가 기준율 검증</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <button onClick={() => setYear(y => y - 1)} className="px-2 py-1 text-slate-400 hover:text-white"><</button>
+                <span className="px-3 py-1 font-bold text-sm text-amber-400"><i className="fa-regular fa-calendar mr-1.5"></i>{year}년 귀속</span>
+                <button onClick={() => setYear(y => y + 1)} className="px-2 py-1 text-slate-400 hover:text-white">></button>
               </div>
 
-              {/* 연도 선택 및 화면 전환 탭 */}
-              <div className="flex flex-wrap items-center gap-3">
-                {syncNotice && (
-                  <span className="text-xs text-emerald-300 bg-slate-800 border border-emerald-700/50 px-3 py-1.5 rounded-md">
-                    <i className="fa-solid fa-circle-check mr-1.5"></i>
-                    {syncNotice}
-                  </span>
-                )}
-
-                {/* 연도 선택기 */}
-                <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1">
-                  <button
-                    onClick={() => setEvalYear((y) => y - 1)}
-                    className="px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                    title="이전 연도"
-                  >
-                    <i className="fa-solid fa-chevron-left"></i>
-                  </button>
-                  <div className="px-3 py-1 text-sm font-semibold text-white flex items-center gap-2 tabular-nums">
-                    <i className="fa-regular fa-calendar-check text-blue-400"></i>
-                    <span>{evalYear}년 귀속</span>
-                  </div>
-                  <button
-                    onClick={() => setEvalYear((y) => y + 1)}
-                    className="px-2.5 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                    title="다음 연도"
-                  >
-                    <i className="fa-solid fa-chevron-right"></i>
-                  </button>
-                </div>
-
-                {/* 화면 전환 탭 */}
-                <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1">
-                  <button
-                    onClick={() => setActiveTab('input')}
-                    className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                      activeTab === 'input'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    <i className="fa-solid fa-pen-to-square mr-1.5"></i>
-                    평가 결과 입력
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('matrix')}
-                    className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                      activeTab === 'matrix'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-300 hover:text-white'
-                    }`}
-                  >
-                    <i className="fa-solid fa-table-columns mr-1.5"></i>
-                    다년도 승진심사 매트릭스
-                  </button>
-                </div>
-
+              <div className="flex bg-slate-800 p-1 rounded-lg">
                 <button
-                  onClick={() => setShowDbModal(true)}
-                  className="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <i className="fa-solid fa-database mr-1.5 text-emerald-400"></i>
-                  {supabaseClient ? 'Supabase 연결됨' : 'DB / 저장 설정'}
-                </button>
+                  onClick={() => setTab("input")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded ${tab === 'input' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                ><i className="fa-solid fa-pen-to-square mr-1"></i>평가 결과 입력</button>
+                <button
+                  onClick={() => setTab("promo")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded ${tab === 'promo' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                ><i className="fa-solid fa-table-list mr-1"></i>다년도 승진심사 매트릭스</button>
               </div>
+
+              <button
+                onClick={() => { setEditingEmp(null); setIsEmpModalOpen(true); }}
+                className="px-3 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+              >
+                <i className="fa-solid fa-user-plus"></i> 사원 마스터 관리
+              </button>
+
+              <button
+                onClick={() => setIsConfigOpen(true)}
+                className={`px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 ${supabaseClient ? 'bg-slate-800 text-emerald-400 border border-emerald-500/50' : 'bg-amber-600 text-white'}`}
+              >
+                <i className="fa-solid fa-database"></i> {supabaseClient ? "Supabase 연동됨" : "Supabase 설정"}
+              </button>
             </div>
           </header>
 
-          {/* 메인 워크스페이스 */}
-          <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-6 space-y-6">
-            {/* 상단 컨트롤 바: 부서 필터 + 검색 + 가중치 안내 토글 */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-500 mr-2">
-                  <i className="fa-solid fa-building-user mr-1"></i>부서 필터
-                </span>
-                {DEPARTMENTS.map((dept) => {
-                  const count = dept === '전체 부서'
-                    ? INITIAL_EMPLOYEES.length
-                    : INITIAL_EMPLOYEES.filter((e) => e.dept === dept).length;
-                  return (
-                    <button
-                      key={dept}
-                      onClick={() => setSelectedDept(dept)}
-                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                        selectedDept === dept
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                      }`}
-                    >
-                      {dept} <span className="ml-1 opacity-75 tabular-nums">({count})</span>
-                    </button>
-                  );
-                })}
+          {/* 상단 컨트롤 바 */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 mr-1"><i className="fa-solid fa-filter mr-1"></i>부서 필터:</span>
+              <button
+                onClick={() => setDept("전체")}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition ${dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >전체부서 ({employees.length})</button>
+              {DEPARTMENTS.map(d => {
+                const count = employees.filter(e => e.dept === d).length;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setDept(d)}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >{d} ({count})</button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input
+                  type="text"
+                  placeholder="성명, 사번, 직위 검색..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-52 focus:outline-blue-500"
+                />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative">
-                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="성명, 사번, 직위 검색..."
-                    className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 w-48"
-                  />
-                </div>
-                <button
-                  onClick={() => setShowWeightGuide((v) => !v)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <i className="fa-solid fa-scale-balanced mr-1.5 text-slate-600"></i>
-                  직급별 가중치 및 산출공식 {showWeightGuide ? '접기' : '보기'}
-                </button>
-                <button
-                  onClick={handleSyncAllToSupabase}
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <i className="fa-solid fa-cloud-arrow-up mr-1.5"></i>
-                  전체 저장 (Upsert)
-                </button>
-                <button
-                  onClick={handleResetData}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <i className="fa-solid fa-rotate-left mr-1"></i>초기화
-                </button>
+              <button
+                onClick={handleSaveAll}
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm"
+              >
+                <i className="fa-solid fa-cloud-arrow-up"></i> 평가데이터 저장 (Upsert)
+              </button>
+            </div>
+          </div>
+
+          {/* 상단 그룹 평가 기준율 대시보드 */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+              <span className="text-xs font-semibold text-slate-400">전체 부서 평가 대상</span>
+              <div className="my-2">
+                <span className="text-3xl font-black text-slate-800">{totalCount}</span>
+                <span className="text-sm font-semibold text-slate-500 ml-1">명</span>
+              </div>
+              <div className="text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded">
+                배분 완료: <b className="text-blue-600">{gradedTotal}명</b> ({getPct(gradedTotal)}%)
               </div>
             </div>
 
-            {/* 직급별 가중치 및 승진 포인트 안내 패널 */}
-            {showWeightGuide && (
-              <div className="bg-white rounded-xl border border-slate-200 p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 mb-2.5">
-                    1. 직급별 평가항목 가중치 테이블
-                  </h3>
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 border-y border-slate-200">
-                        <th className="py-1.5 px-2 text-left">직급군</th>
-                        <th className="py-1.5 px-2 text-right">역량</th>
-                        <th className="py-1.5 px-2 text-right">성과</th>
-                        <th className="py-1.5 px-2 text-right">자기계발</th>
-                        <th className="py-1.5 px-2 text-right">부하육성</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 tabular-nums">
-                      <tr>
-                        <td className="py-1.5 px-2 font-medium">임원진 (사장~이사)</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">80%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">10%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">10%</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 px-2 font-medium">실장 / 부장 / 차장</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">30%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">60%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">10%</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 px-2 font-medium">과장 / 대리</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">60%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">40%</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 px-2 font-medium">주임 / 사원</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">70%</td>
-                        <td className="py-1.5 px-2 text-right font-semibold">30%</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                        <td className="py-1.5 px-2 text-right text-slate-400">0% (-)</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+            {GRADES.map(grade => {
+              const targetRate = GRADE_TARGET_RATE[grade];
+              const recCount = recommendedCount(totalCount, grade);
+              const curCount = counts[grade];
+              const curRate = getPct(curCount);
+              const isOver = curCount > Math.round(parseFloat(recCount));
 
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 mb-2.5">
-                    2. 최종 환산점수 산출 공식
-                  </h3>
-                  <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-700 space-y-2 leading-relaxed">
-                    <p className="font-semibold text-slate-900">
-                      최종 환산점수 = (역량×역량비율) + (성과×성과비율) + (자기계발×자기계발비율) + (부하육성×부하육성비율) + 가감점
-                    </p>
-                    <p className="text-slate-500">
-                      · 본인평가, 1차평가, 대표이사 평가는 오프라인 완료 후 대표이사 최종 결정 원점수를 입력합니다.<br />
-                      · 직급에 해당하지 않는 가중치(0%) 항목은 자동으로 <span className="font-mono font-semibold">'-'</span> 비활성화 처리됩니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 mb-2.5">
-                    3. 등급별 기준율 및 승진 포인트 연계표
-                  </h3>
-                  <div className="grid grid-cols-5 gap-2 text-center text-xs tabular-nums">
-                    {GRADE_RATIOS.map((item) => (
-                      <div key={item.grade} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                        <div className="font-bold text-sm text-slate-900">{item.grade}등급</div>
-                        <div className="text-slate-500 mt-0.5">기준 {item.percentText}</div>
-                        <div className="mt-1.5 font-semibold text-blue-700">{item.points}점</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* [2. 그룹 평가 기준율(%) 실시간 검증 대시보드] */}
-            <section aria-label="그룹 평가 기준율 실시간 검증 대시보드">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
-                {/* 총 대상 인원 및 배분 완료 카드 */}
-                <div className="bg-slate-900 text-white rounded-xl p-4 flex flex-col justify-between border border-slate-800">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>{selectedDept} 평가 대상</span>
-                    <span>{evalYear}년</span>
-                  </div>
-                  <div className="my-2">
-                    <div className="text-2xl font-bold tabular-nums">
-                      {dashboardStats.assignedCount} <span className="text-sm font-normal text-slate-400">/ {dashboardStats.targetCount}명</span>
-                    </div>
-                    <div className="text-xs text-slate-300 mt-1 tabular-nums">
-                      배분 완료율 <span className="font-semibold text-white">{dashboardStats.assignedRate}%</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-blue-500 h-full transition-all"
-                      style={{ width: `${Math.min(100, Number(dashboardStats.assignedRate))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* S, A, B, C, D 등급별 실시간 검증 카드 */}
-                {dashboardStats.cards.map((card) => (
-                  <div
-                    key={card.grade}
-                    className={`bg-white rounded-xl p-4 border flex flex-col justify-between transition-colors ${
-                      card.isExceeded ? 'border-amber-400 bg-amber-50/20' : 'border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <span className="text-sm font-bold text-slate-900">{card.label}</span>
-                        <span className="text-xs text-slate-500 ml-1.5 tabular-nums">기준 {card.percentText}</span>
-                      </div>
-                      {card.isExceeded ? (
-                        <span className="px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded whitespace-nowrap">
-                          <i className="fa-solid fa-triangle-exclamation mr-1"></i>초과주의
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 rounded whitespace-nowrap">
-                          <i className="fa-solid fa-check mr-1"></i>적정
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="my-2.5">
-                      <div className="text-xl font-bold text-slate-900 tabular-nums">
-                        {card.currentCount}명 <span className="text-sm font-medium text-slate-500">({card.currentRatio}%)</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 tabular-nums">
-                      <span>권장 인원</span>
-                      <span className="font-semibold text-slate-700">
-                        {card.recommendedExact}명 <span className="text-slate-400 font-normal">(한도 {card.recommendedRounded}명)</span>
+              return (
+                <div key={grade} className={`bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between transition ${isOver && curCount > 0 ? 'border-amber-400 bg-amber-50/20' : 'border-slate-200'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-sm text-slate-700 flex items-center gap-1.5">
+                      <span className={`w-5 h-5 rounded flex items-center justify-center text-xs ${gradeColor[grade]}`}>
+                        {grade}
                       </span>
-                    </div>
+                      {grade}등급
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">기준 {targetRate}%</span>
                   </div>
-                ))}
-              </div>
-            </section>
 
-            {/* 탭 1: [평가 결과 입력] */}
-            {activeTab === 'input' && (
-              <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/60">
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900">
-                      {evalYear}년도 인사평가 결과 입력 및 자동 환산 명세표
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      원점수 및 가감점 입력 시 직급별 가중치가 자동 곱해져 소수점 첫째 자리의 최종 환산점수가 실시간 도출됩니다.
-                    </p>
+                  <div className="my-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-800">{curCount}명</span>
+                    <span className="text-xs font-bold text-slate-500">({curRate}%)</span>
                   </div>
-                  <div className="text-xs text-slate-500 tabular-nums">
-                    조회 인원: <strong className="text-slate-900">{filteredEmployees.length}명</strong> · 승진포인트: S(10) · A(8) · B(6) · C(4) · D(2)
+
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100">
+                    <span className="text-slate-400">권장: <b className="text-slate-700">{recCount}명</b></span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isOver && curCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {isOver && curCount > 0 ? '초과주의' : '적정'}
+                    </span>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-semibold">
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">사번</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">성명</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">부서</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">직위</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap">역량</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap">성과</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap">자기계발</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap">부하육성</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap min-w-[210px]">가감점 / 사유</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap bg-blue-50/60 text-blue-900">최종 환산점수</th>
-                        <th className="py-2.5 px-3 text-center whitespace-nowrap">최종 등급</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap">승진 포인트</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap min-w-[180px]">특이사항</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredEmployees.map((emp) => {
-                        const rec = currentYearMap[emp.emp_no];
-                        const weights = getWeightsByPosition(emp.position);
-                        return (
-                          <tr key={emp.emp_no} className="hover:bg-slate-50/90 transition-colors">
-                            <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap tabular-nums">
-                              {emp.emp_no}
-                            </td>
-                            <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                              {emp.name}
-                            </td>
-                            <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
-                              {emp.dept}
-                            </td>
-                            <td className="py-2 px-3 whitespace-nowrap">
-                              <span className="font-medium text-slate-800">{emp.position}</span>
-                              <span className="text-[10px] text-slate-400 ml-1 tabular-nums">
-                                ({weights.competency * 100}/{weights.performance * 100}/{weights.selfDev * 100}/{weights.subordinateDev * 100})
-                              </span>
-                            </td>
+          {/* 메인 콘텐츠 테이블 */}
+          {tab === "input" ? (
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-700">
+                  <i className="fa-solid fa-list-check mr-1.5 text-blue-600"></i> {year}년도 인사평가 결과 입력 ({dept} · {filteredEmps.length}명)
+                </span>
+                <span className="text-xs text-slate-500">
+                  * 사원 성명을 클릭하면 사원 마스터(직위, 부서, 승진일자)를 바로 수정할 수 있습니다.
+                </span>
+              </div>
 
-                            {/* 역량 */}
-                            <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums">
-                              {weights.competency > 0 ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.5"
-                                  value={rec.competency_score ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      competency_score: e.target.value === '' ? 0 : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-16 px-2 py-1 text-right bg-white border border-slate-300 rounded focus:outline-none focus:border-blue-600 tabular-nums"
-                                />
-                              ) : (
-                                <span className="text-slate-300 font-mono select-none">-</span>
-                              )}
-                            </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 text-center w-14">사번</th>
+                      <th className="p-3 w-20">성명</th>
+                      <th className="p-3 w-24">부서</th>
+                      <th className="p-3 w-16">직위</th>
+                      <th className="p-3 text-center w-20 bg-blue-50/50">역량</th>
+                      <th className="p-3 text-center w-20 bg-blue-50/50">성과</th>
+                      <th className="p-3 text-center w-20 bg-blue-50/50">자기계발</th>
+                      <th className="p-3 text-center w-20 bg-blue-50/50">부하육성</th>
+                      <th className="p-3 text-center w-24">가감점 / 사유</th>
+                      <th className="p-3 text-center w-24 bg-slate-200/60 font-bold text-slate-800">최종 환산점수</th>
+                      <th className="p-3 text-center w-24">최종 등급</th>
+                      <th className="p-3 text-center w-20">승진 포인트</th>
+                      <th className="p-3">특이사항</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredEmps.map(emp => {
+                      const ev = currentYearEvals[emp.emp_no] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
+                      const w = weightsFor(emp.position);
+                      const fScore = finalScore(emp.position, ev);
+                      const points = pointsFor(ev.grade);
 
-                            {/* 성과 */}
-                            <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums">
-                              {weights.performance > 0 ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.5"
-                                  value={rec.performance_score ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      performance_score: e.target.value === '' ? 0 : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-16 px-2 py-1 text-right bg-white border border-slate-300 rounded focus:outline-none focus:border-blue-600 tabular-nums"
-                                />
-                              ) : (
-                                <span className="text-slate-300 font-mono select-none">-</span>
-                              )}
-                            </td>
+                      return (
+                        <tr key={emp.emp_no} className="hover:bg-blue-50/30 transition">
+                          <td className="p-2.5 text-center font-mono text-slate-400">{emp.emp_no}</td>
+                          <td className="p-2.5">
+                            <button
+                              onClick={() => { setEditingEmp(emp); setIsEmpModalOpen(true); }}
+                              className="font-bold text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              {emp.name} <i className="fa-solid fa-pen text-[10px] text-slate-300"></i>
+                            </button>
+                          </td>
+                          <td className="p-2.5 text-slate-600">{emp.dept}</td>
+                          <td className="p-2.5 font-semibold text-slate-700">{emp.position}</td>
 
-                            {/* 자기계발 */}
-                            <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums">
-                              {weights.selfDev > 0 ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.5"
-                                  value={rec.self_dev_score ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      self_dev_score: e.target.value === '' ? 0 : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-16 px-2 py-1 text-right bg-white border border-slate-300 rounded focus:outline-none focus:border-blue-600 tabular-nums"
-                                />
-                              ) : (
-                                <span className="text-slate-300 font-mono select-none">-</span>
-                              )}
-                            </td>
-
-                            {/* 부하육성 */}
-                            <td className="py-2 px-3 text-right whitespace-nowrap tabular-nums">
-                              {weights.subordinateDev > 0 ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.5"
-                                  value={rec.subordinate_dev_score ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      subordinate_dev_score: e.target.value === '' ? 0 : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-16 px-2 py-1 text-right bg-white border border-slate-300 rounded focus:outline-none focus:border-blue-600 tabular-nums"
-                                />
-                              ) : (
-                                <span className="text-slate-300 font-mono select-none">-</span>
-                              )}
-                            </td>
-
-                            {/* 가감점 / 사유 */}
-                            <td className="py-2 px-3 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
+                          {/* 역량 */}
+                          <td className="p-2 text-center bg-blue-50/20">
+                            {w.competency > 0 ? (
+                              <div>
                                 <input
                                   type="number"
                                   step="0.5"
-                                  min="-20"
-                                  max="20"
-                                  value={rec.bonus_penalty_score}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      bonus_penalty_score: e.target.value === '' ? 0 : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-14 px-1.5 py-1 text-right bg-white border border-slate-300 rounded focus:outline-none focus:border-blue-600 tabular-nums"
+                                  value={ev.competency}
+                                  onChange={e => handleCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
                                 />
-                                <input
-                                  type="text"
-                                  value={rec.bonus_penalty_reason}
-                                  onChange={(e) =>
-                                    handleUpdateRecord(emp, {
-                                      bonus_penalty_reason: e.target.value,
-                                    })
-                                  }
-                                  placeholder="가감점 사유"
-                                  className="w-36 px-2 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-600 text-xs"
-                                />
+                                <div className="text-[10px] text-slate-400 mt-0.5">{w.competency * 100}%</div>
                               </div>
-                            </td>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
 
-                            {/* 최종 환산점수 */}
-                            <td className="py-2 px-3 text-right font-bold text-sm text-blue-900 bg-blue-50/40 whitespace-nowrap tabular-nums">
-                              {rec.final_score.toFixed(1)}
-                            </td>
+                          {/* 성과 */}
+                          <td className="p-2 text-center bg-blue-50/20">
+                            {w.performance > 0 ? (
+                              <div>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={ev.performance}
+                                  onChange={e => handleCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                                />
+                                <div className="text-[10px] text-slate-400 mt-0.5">{w.performance * 100}%</div>
+                              </div>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
 
-                            {/* 최종 등급 (드롭다운) */}
-                            <td className="py-2 px-3 text-center whitespace-nowrap">
-                              <select
-                                value={rec.final_grade}
-                                onChange={(e) =>
-                                  handleUpdateRecord(emp, {
-                                    final_grade: e.target.value,
-                                  })
-                                }
-                                className="px-2.5 py-1 font-bold rounded border border-slate-300 bg-white focus:outline-none focus:border-blue-600 text-xs"
-                              >
-                                <option value="">미선택</option>
-                                <option value="S">S등급</option>
-                                <option value="A">A등급</option>
-                                <option value="B">B등급</option>
-                                <option value="C">C등급</option>
-                                <option value="D">D등급</option>
-                              </select>
-                            </td>
+                          {/* 자기계발 */}
+                          <td className="p-2 text-center bg-blue-50/20">
+                            {w.selfDev > 0 ? (
+                              <div>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={ev.selfDev}
+                                  onChange={e => handleCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                                />
+                                <div className="text-[10px] text-slate-400 mt-0.5">{w.selfDev * 100}%</div>
+                              </div>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
 
-                            {/* 승진 포인트 */}
-                            <td className="py-2 px-3 text-right font-bold text-slate-800 whitespace-nowrap tabular-nums">
-                              {rec.promotion_points}점
-                            </td>
+                          {/* 부하육성 */}
+                          <td className="p-2 text-center bg-blue-50/20">
+                            {w.mentoring > 0 ? (
+                              <div>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  value={ev.mentoring}
+                                  onChange={e => handleCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                  className="w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
+                                />
+                                <div className="text-[10px] text-slate-400 mt-0.5">{w.mentoring * 100}%</div>
+                              </div>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
 
-                            {/* 특이사항 */}
-                            <td className="py-2 px-3 whitespace-nowrap">
+                          {/* 가감점 / 사유 */}
+                          <td className="p-2 text-center">
+                            <div className="flex items-center gap-1 justify-center">
+                              <input
+                                type="number"
+                                placeholder="±"
+                                value={ev.adjust}
+                                onChange={e => handleCellChange(emp.emp_no, 'adjust', e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                className="w-12 border rounded px-1 py-1 text-center font-medium bg-white focus:outline-blue-500 text-xs"
+                              />
                               <input
                                 type="text"
-                                value={rec.remarks}
-                                onChange={(e) =>
-                                  handleUpdateRecord(emp, {
-                                    remarks: e.target.value,
-                                  })
-                                }
-                                placeholder="특이사항 입력"
-                                className="w-full min-w-[160px] px-2 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-600 text-xs"
+                                placeholder="사유"
+                                value={ev.adjustReason}
+                                onChange={e => handleCellChange(emp.emp_no, 'adjustReason', e.target.value)}
+                                className="w-20 border rounded px-1 py-1 text-xs bg-white focus:outline-blue-500"
                               />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
+                            </div>
+                          </td>
 
-            {/* 탭 2: [다년도 승진심사 매트릭스] */}
-            {activeTab === 'matrix' && (
-              <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/60">
+                          {/* 최종 환산점수 */}
+                          <td className="p-2.5 text-center font-black text-blue-700 bg-slate-100/70 text-sm">
+                            {fScore.toFixed(1)}
+                          </td>
+
+                          {/* 최종 등급 */}
+                          <td className="p-2 text-center">
+                            <select
+                              value={ev.grade}
+                              onChange={e => handleCellChange(emp.emp_no, 'grade', e.target.value)}
+                              className="border border-slate-300 rounded px-2 py-1 font-bold bg-white text-slate-800 shadow-sm focus:outline-blue-500"
+                            >
+                              <option value="">-</option>
+                              {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                          </td>
+
+                          {/* 승진 포인트 */}
+                          <td className="p-2.5 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                              +{points}P
+                            </span>
+                          </td>
+
+                          {/* 특이사항 */}
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              placeholder="특이사항 메모"
+                              value={ev.note}
+                              onChange={e => handleCellChange(emp.emp_no, 'note', e.target.value)}
+                              className="w-full border rounded px-2 py-1 text-xs text-slate-600 bg-white focus:outline-blue-500"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* 승진심사 매트릭스 탭 */
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <i className="fa-solid fa-award text-amber-500"></i> 최근 3개년 승진심사 대상 및 포인트 집계표
+                </h2>
+                <span className="text-xs text-slate-400">기준: S(10P), A(8P), B(6P), C(4P), D(2P)</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 text-slate-600 font-semibold border-b">
+                    <tr>
+                      <th className="p-3">사번</th>
+                      <th className="p-3">성명</th>
+                      <th className="p-3">부서</th>
+                      <th className="p-3">직위</th>
+                      <th className="p-3">입사일자</th>
+                      <th className="p-3">최근승진일</th>
+                      <th className="p-3 text-center">2023년</th>
+                      <th className="p-3 text-center">2024년</th>
+                      <th className="p-3 text-center bg-blue-50">2025년 (확정)</th>
+                      <th className="p-3 text-center font-bold text-slate-800 bg-amber-50">3개년 누적 승진포인트</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredEmps.map(emp => {
+                      const curGrade = currentYearEvals[emp.emp_no]?.grade || "B";
+                      const curPoint = pointsFor(curGrade);
+                      const p2023 = 6;
+                      const p2024 = 6;
+                      const totalPoint = p2023 + p2024 + curPoint;
+
+                      return (
+                        <tr key={emp.emp_no} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono text-slate-400">{emp.emp_no}</td>
+                          <td className="p-3 font-bold text-slate-800">{emp.name}</td>
+                          <td className="p-3 text-slate-600">{emp.dept}</td>
+                          <td className="p-3 text-slate-700">{emp.position}</td>
+                          <td className="p-3 text-slate-500">{emp.hire_date || '-'}</td>
+                          <td className="p-3 text-slate-500">{emp.promo_date || '-'}</td>
+                          <td className="p-3 text-center text-slate-500">B (6P)</td>
+                          <td className="p-3 text-center text-slate-500">B (6P)</td>
+                          <td className="p-3 text-center font-bold text-blue-600 bg-blue-50/30">
+                            {curGrade} (+{curPoint}P)
+                          </td>
+                          <td className="p-3 text-center font-black text-amber-700 bg-amber-50/50 text-sm">
+                            {totalPoint}P
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 사원 마스터 등록 / 수정 모달 */}
+          {isEmpModalOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
+                <div className="flex justify-between items-center mb-4 pb-2 border-b">
+                  <h3 className="font-bold text-slate-800 text-base">
+                    {editingEmp ? "사원 정보 수정" : "신규 사원 등록"}
+                  </h3>
+                  <button onClick={() => setIsEmpModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <i className="fa-solid fa-xmark text-lg"></i>
+                  </button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target);
+                  handleSaveEmployee({
+                    emp_no: fd.get("emp_no"),
+                    name: fd.get("name"),
+                    dept: fd.get("dept"),
+                    position: fd.get("position"),
+                    birth_date: fd.get("birth_date") || null,
+                    hire_date: fd.get("hire_date") || null,
+                    promo_date: fd.get("promo_date") || null,
+                    is_active: true
+                  });
+                }} className="space-y-3 text-xs">
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">
-                      다년도 승진심사 매트릭스 (2023년 ~ 2025년 3개년 누적 승진포인트 비교)
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      사번, 성명, 부서, 직위, 최근승진일 및 최근 3개년 등급(포인트)과 누적 승진포인트 합계를 가로 한 줄로 비교 조회합니다.
-                    </p>
+                    <label className="block text-slate-600 font-bold mb-1">사번</label>
+                    <input
+                      name="emp_no"
+                      defaultValue={editingEmp?.emp_no || ""}
+                      readOnly={!!editingEmp}
+                      required
+                      placeholder="예: 250001"
+                      className="w-full border rounded px-3 py-1.5 font-mono bg-slate-50 focus:outline-blue-500"
+                    />
                   </div>
-                </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-semibold">
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">사번</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">성명</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">부서</th>
-                        <th className="py-2.5 px-3 text-left whitespace-nowrap">직위</th>
-                        <th className="py-2.5 px-3 text-center whitespace-nowrap">최근승진일</th>
-                        <th className="py-2.5 px-3 text-center whitespace-nowrap">2023년 등급(포인트)</th>
-                        <th className="py-2.5 px-3 text-center whitespace-nowrap">2024년 등급(포인트)</th>
-                        <th className="py-2.5 px-3 text-center whitespace-nowrap bg-blue-50/40">2025년 등급(포인트)</th>
-                        <th className="py-2.5 px-3 text-right whitespace-nowrap bg-slate-900 text-white">3개년 누적 승진포인트 합계</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredEmployees.map((emp) => {
-                        const r23 = ensureYearData(2023)[emp.emp_no];
-                        const r24 = ensureYearData(2024)[emp.emp_no];
-                        const r25 = ensureYearData(2025)[emp.emp_no];
-                        const p23 = r23 ? r23.promotion_points : 0;
-                        const p24 = r24 ? r24.promotion_points : 0;
-                        const p25 = r25 ? r25.promotion_points : 0;
-                        const totalPoints = p23 + p24 + p25;
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">성명</label>
+                    <input
+                      name="name"
+                      defaultValue={editingEmp?.name || ""}
+                      required
+                      placeholder="성명 입력"
+                      className="w-full border rounded px-3 py-1.5 font-semibold focus:outline-blue-500"
+                    />
+                  </div>
 
-                        return (
-                          <tr key={emp.emp_no} className="hover:bg-slate-50/90 transition-colors">
-                            <td className="py-2.5 px-3 font-mono text-slate-500 whitespace-nowrap tabular-nums">{emp.emp_no}</td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">{emp.name}</td>
-                            <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{emp.dept}</td>
-                            <td className="py-2.5 px-3 font-medium text-slate-800 whitespace-nowrap">{emp.position}</td>
-                            <td className="py-2.5 px-3 text-center text-slate-600 whitespace-nowrap tabular-nums">{emp.last_promotion_date}</td>
-                            <td className="py-2.5 px-3 text-center whitespace-nowrap tabular-nums">
-                              <span className="font-bold text-slate-800">{r23?.final_grade || '-'}등급</span>
-                              <span className="text-slate-500 ml-1">({p23}점)</span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center whitespace-nowrap tabular-nums">
-                              <span className="font-bold text-slate-800">{r24?.final_grade || '-'}등급</span>
-                              <span className="text-slate-500 ml-1">({p24}점)</span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center bg-blue-50/30 whitespace-nowrap tabular-nums">
-                              <span className="font-bold text-blue-900">{r25?.final_grade || '-'}등급</span>
-                              <span className="text-blue-700 ml-1">({p25}점)</span>
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-bold text-sm text-slate-900 bg-slate-50 whitespace-nowrap tabular-nums">
-                              {totalPoints}점
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-          </main>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">부서</label>
+                      <select name="dept" defaultValue={editingEmp?.dept || "관리팀"} className="w-full border rounded px-2 py-1.5 focus:outline-blue-500">
+                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">직위</label>
+                      <select name="position" defaultValue={editingEmp?.position || "사원"} className="w-full border rounded px-2 py-1.5 focus:outline-blue-500">
+                        {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-slate-600 font-medium mb-1">생년월일</label>
+                      <input type="date" name="birth_date" defaultValue={editingEmp?.birth_date || ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-medium mb-1">입사일자</label>
+                      <input type="date" name="hire_date" defaultValue={editingEmp?.hire_date || ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 font-medium mb-1">최근승진일</label>
+                      <input type="date" name="promo_date" defaultValue={editingEmp?.promo_date || ""} className="w-full border rounded px-1.5 py-1 text-[11px]" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsEmpModalOpen(false)}
+                      className="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                    >
+                      저장하기
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Supabase 설정 모달 */}
-          {showDbModal && (
-            <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl border border-slate-200 max-w-lg w-full p-6 space-y-4 shadow-xl">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-slate-900">
-                    Supabase 클라우드 DB 및 localStorage 이중 영속성 설정
-                  </h3>
-                  <button onClick={() => setShowDbModal(false)} className="text-slate-400 hover:text-slate-700">
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  코드 상단의 <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">SUPABASE_URL</code> 및 <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">SUPABASE_ANON_KEY</code> 상수 또는 아래 입력란에 정보를 입력하면 <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">annual_evaluations</code> 테이블에 실시간 Upsert됩니다. 비어있어도 브라우저 <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">localStorage</code>에 자동 보존됩니다.
-                </p>
-                <div className="space-y-3">
+          {isConfigOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
+                <h3 className="font-bold text-slate-800 text-base mb-3 pb-2 border-b">Supabase 클라우드 설정</h3>
+                <div className="space-y-3 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">SUPABASE_URL</label>
+                    <label className="block text-slate-600 font-bold mb-1">Project URL</label>
                     <input
                       type="text"
-                      value={sbConfig.url}
-                      onChange={(e) => setSbConfig((s) => ({ ...s, url: e.target.value }))}
-                      placeholder="https://your-project.supabase.co"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono"
+                      id="sb_url_input"
+                      defaultValue={sbConfig.url}
+                      placeholder="https://xxxxxxxx.supabase.co"
+                      className="w-full border rounded px-3 py-2 font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">SUPABASE_ANON_KEY</label>
-                    <input
-                      type="password"
-                      value={sbConfig.anonKey}
-                      onChange={(e) => setSbConfig((s) => ({ ...s, anonKey: e.target.value }))}
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono"
+                    <label className="block text-slate-600 font-bold mb-1">Anon / Public API Key</label>
+                    <textarea
+                      id="sb_key_input"
+                      defaultValue={sbConfig.key}
+                      rows={3}
+                      placeholder="eyJh..."
+                      className="w-full border rounded px-3 py-2 font-mono"
                     />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => {
-                      localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(sbConfig));
-                      setShowDbModal(false);
-                      setSyncNotice('데이터베이스 연결 설정이 저장되었습니다.');
-                      setTimeout(() => setSyncNotice(''), 3000);
-                    }}
-                    className="px-4 py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800"
-                  >
-                    설정 저장
-                  </button>
+                <div className="flex justify-end gap-2 pt-4 border-t mt-4">
+                  <button onClick={() => setIsConfigOpen(false)} className="px-3 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold text-xs">닫기</button>
+                  <button onClick={() => {
+                    const u = document.getElementById("sb_url_input").value.trim();
+                    const k = document.getElementById("sb_key_input").value.trim();
+                    localStorage.setItem("ds_sb_url", u);
+                    localStorage.setItem("ds_sb_key", k);
+                    setSbConfig({ url: u, key: k });
+                    setIsConfigOpen(false);
+                    alert("Supabase 연결 정보가 저장되었습니다.");
+                  }} className="px-4 py-1.5 rounded bg-emerald-600 text-white font-bold text-xs">설정 저장</button>
                 </div>
               </div>
             </div>
@@ -1155,13 +793,7 @@
       );
     }
 
-    if (!window.__VITE_MOUNTED__) {
-      const rootEl = document.getElementById('root');
-      if (rootEl) {
-        const root = ReactDOM.createRoot(rootEl);
-        root.render(<StandaloneApp />);
-      }
-    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
