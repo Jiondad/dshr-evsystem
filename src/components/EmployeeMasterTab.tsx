@@ -27,9 +27,11 @@ export const EmployeeMasterTab: React.FC<Props> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (evt) => {
+    reader.onload = async (evt: ProgressEvent<FileReader>) => {
       try {
-        const text = evt.target?.result as string;
+        const text = evt.target?.result;
+        if (typeof text !== "string") return;
+
         const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== "");
         if (lines.length < 2) {
           alert("유효한 데이터 행이 존재하지 않습니다.");
@@ -73,11 +75,15 @@ export const EmployeeMasterTab: React.FC<Props> = ({
         } else {
           alert("DB 미연결 상태입니다. DB 설정 후 다시 시도해주세요.");
         }
-      } catch (err: any) {
-        alert("파일 처리 중 오류 발생: " + err.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          alert("파일 처리 중 오류 발생: " + err.message);
+        } else {
+          alert("파일 처리 중 알 수 없는 오류가 발생했습니다.");
+        }
       }
     };
-    reader.readAsText(file, "EUC-KR"); // 한글 엑셀 CSV 대응
+    reader.readAsText(file, "EUC-KR");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
