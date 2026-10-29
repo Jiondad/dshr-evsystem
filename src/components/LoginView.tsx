@@ -18,8 +18,8 @@ export const LoginView: React.FC<Props> = ({ onLogin }) => {
     // 계정 검증 로직
     if (id === 'admin' && pw === 'daeseong2026!') {
       onLogin({ id: 'admin', name: '총괄관리자', role: 'LV0_ADMIN' });
-    } else if (id === 'evaluator' && pw === 'eval2026!') {
-      onLogin({ id: 'evaluator', name: '평가위원', role: 'LV1_EVALUATOR' });
+    } else if (id === 'dssteel' && pw === 'dssteelev') {
+      onLogin({ id: 'dssteel', name: '평가위원', role: 'LV1_EVALUATOR' });
     } else {
       setErrorMsg('아이디 또는 비밀번호가 올바르지 않습니다.');
     }
@@ -86,10 +86,10 @@ export const LoginView: React.FC<Props> = ({ onLogin }) => {
             <i className="fa-solid fa-shield-halved text-blue-600" /> 접속 권한 안내
           </p>
           <div className="flex justify-between items-center text-[10.5px]">
-            <span>• 관리자 (LV.0): <strong className="font-mono text-slate-800">admin</strong> / daeseong2026!</span>
+            <span>• 관리자 (LV.0): <strong className="font-mono text-slate-800">010011</strong> / 010011ad</span>
           </div>
           <div className="flex justify-between items-center text-[10.5px]">
-            <span>• 평가자 (LV.1): <strong className="font-mono text-slate-800">evaluator</strong> / eval2026!</span>
+            <span>• 평가자 (LV.1): <strong className="font-mono text-slate-800">dssteel</strong> / dssteelev!</span>
           </div>
         </div>
       </div>
