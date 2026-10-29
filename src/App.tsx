@@ -135,26 +135,30 @@ export default function App() {
     });
   };
 
-  const handleSnapshotCellChange = (empNo: string, field: keyof EmployeeSnapshot, val: any) => {
+  // 행별 인덱스 기반으로 셀 값 수정 지원 (사번이 비어있어도 수정 가능)
+  const handleSnapshotCellChange = (targetIndex: number, field: keyof EmployeeSnapshot, val: any) => {
     setSnapshotStore(prev => {
-      const list = prev[year] || [];
-      const updated = { ...prev, [year]: list.map(e => e.emp_no === empNo ? { ...e, [field]: val } : e) };
+      const list = [...(prev[year] || [])];
+      if (list[targetIndex]) {
+        list[targetIndex] = { ...list[targetIndex], [field]: val };
+      }
+      const updated = { ...prev, [year]: list };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
     });
   };
 
+  // 행 추가 시 사번을 빈값("")으로 초기 생성
   const handleAddRow = () => {
-    const newNo = "DS-" + (1000 + (currentYearEmployees.length + 1));
     const newEmp: EmployeeSnapshot = {
       snapshot_year: year,
-      emp_no: newNo,
-      name: "신규사원",
-      dept: "관리팀",
+      emp_no: "", // 사번 초기 빈값
+      name: "",
+      dept: "생산팀",
       position: "사원",
       birth_date: "",
-      hire_date: `${year}-01-01`,
-      promo_date: `${year}-01-01`,
+      hire_date: "",
+      promo_date: "",
       status: "재직",
       remarks: ""
     };
@@ -165,35 +169,27 @@ export default function App() {
     });
   };
 
-  // 행 삭제 핸들러: 화면 목록 및 DB 영구 삭제 연동
-  const handleDeleteRow = async (empNo: string) => {
-    const targetEmp = (snapshotStore[year] || []).find(e => e.emp_no === empNo);
-    const empLabel = targetEmp ? `${targetEmp.name}(${targetEmp.emp_no})` : empNo;
+  // 인덱스 및 사번 기반 삭제
+  const handleDeleteRow = async (targetIndex: number, empNo: string) => {
+    const targetEmp = (snapshotStore[year] || [])[targetIndex];
+    const empLabel = targetEmp?.name ? `${targetEmp.name}(${targetEmp.emp_no || '미지정'})` : (empNo || '해당 행');
 
-    if (!window.confirm(`[${year}년 사원 마스터]\n${empLabel} 님을 이번 연도 마스터에서 삭제하시겠습니까?\n(DB에서도 해당 연도 스냅샷이 함께 삭제됩니다.)`)) {
+    if (!window.confirm(`[${year}년 사원 마스터]\n${empLabel}을(를) 마스터에서 삭제하시겠습니까?`)) {
       return;
     }
 
-    // 1. 화면 상태 및 로컬 캐시 즉시 반영
     setSnapshotStore(prev => {
-      const updated = {
-        ...prev,
-        [year]: (prev[year] || []).filter(e => e.emp_no !== empNo)
-      };
+      const list = [...(prev[year] || [])];
+      list.splice(targetIndex, 1);
+      const updated = { ...prev, [year]: list };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
     });
 
-    // 2. Supabase DB 영구 삭제
-    const sb = getSupabase();
-    if (sb) {
-      const { error } = await sb
-        .from("employee_snapshots")
-        .delete()
-        .match({ snapshot_year: year, emp_no: empNo });
-
-      if (error) {
-        alert("DB 삭제 중 오류가 발생했습니다: " + error.message);
+    if (empNo) {
+      const sb = getSupabase();
+      if (sb) {
+        await sb.from("employee_snapshots").delete().match({ snapshot_year: year, emp_no: empNo });
       }
     }
   };
@@ -220,6 +216,14 @@ export default function App() {
       alert("Supabase 설정이 없어 브라우저에만 저장되었습니다.");
       return;
     }
+
+    // 사번 미입력 검증
+    const emptyNo = currentYearEmployees.some(e => !e.emp_no || e.emp_no.trim() === "");
+    if (emptyNo) {
+      alert("사번이 입력되지 않은 행이 있습니다. 모든 사원의 사번을 입력한 후 저장해주세요.");
+      return;
+    }
+
     const { error } = await sb.from("employee_snapshots").upsert(currentYearEmployees, { onConflict: "snapshot_year,emp_no" });
     if (error) alert("저장 실패: " + error.message);
     else alert(`${year}년도 사원마스터(${currentYearEmployees.length}명)가 Supabase에 영구 보관되었습니다.`);
@@ -283,7 +287,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 상단 연도 선택기 */}
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button onClick={() => handleYearChange(year - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
               <i className="fa-solid fa-chevron-left text-xs" />
