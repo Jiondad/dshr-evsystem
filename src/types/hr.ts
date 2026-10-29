@@ -1,11 +1,13 @@
 export type Grade = "S" | "A" | "B" | "C" | "D";
 export type StatusType = "재직" | "휴직" | "퇴직";
-export type UserRole = "LV0_ADMIN" | "LV1_EVALUATOR";
+export type UserRole = "LV0_ADMIN" | "LV1_EVALUATOR" | "LV2_DEPT_LEADER";
 
 export interface AuthUser {
   id: string;
   name: string;
+  dept?: string;
   role: UserRole;
+  isFirstLogin?: boolean;
 }
 
 export interface WeightItem {
