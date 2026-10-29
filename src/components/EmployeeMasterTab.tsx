@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { EmployeeSnapshot, StatusType } from "../types/hr";
 import { DEPARTMENTS, POSITIONS } from "../lib/constants";
 import { getSupabase } from "../lib/supabase";
@@ -16,12 +16,59 @@ interface Props {
 
 const STATUS_LIST: StatusType[] = ["재직", "휴직"];
 
+// 키보드 타이핑 시 중간 초기화 현상을 원천 방지하는 스마트 날짜 입력 컴포넌트
+const DateCellInput: React.FC<{
+  value: string | null | undefined;
+  onChange: (val: string | null) => void;
+}> = ({ value, onChange }) => {
+  const [tempVal, setTempVal] = useState(value || "");
+
+  useEffect(() => {
+    setTempVal(value || "");
+  }, [value]);
+
+  const handleBlur = () => {
+    let clean = tempVal.trim().replace(/[^0-9]/g, "");
+    // YYYYMMDD 8자리 숫자를 쳤을 경우 자동으로 YYYY-MM-DD 포맷 변환
+    if (clean.length === 8) {
+      const formatted = `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}`;
+      setTempVal(formatted);
+      onChange(formatted);
+      return;
+    }
+    // 표준 YYYY-MM-DD 규격 확인
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tempVal.trim())) {
+      onChange(tempVal.trim());
+    } else if (tempVal.trim() === "") {
+      onChange(null);
+    } else {
+      // 잘못된 형식인 경우 원래 값 복원
+      setTempVal(value || "");
+    }
+  };
+
+  return (
+    <input
+      type="date"
+      value={tempVal}
+      onChange={e => setTempVal(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={e => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        }
+      }}
+      className="px-1.5 py-0.5 text-[11px] font-mono text-slate-700 bg-white border border-slate-200 rounded focus:border-blue-500 focus:bg-white focus:outline-none"
+    />
+  );
+};
+
 export const EmployeeMasterTab: React.FC<Props> = ({
   year, onYearChange, employees, onCellChange, onAddRow, onDeleteRow, onCopyPrevYear, onSave
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 사원 마스터 엑셀 다운로드 함수
+  // 사원 마스터 엑셀 다운로드 (.xls)
   const handleExportExcel = () => {
     let excelContent = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -166,7 +213,7 @@ export const EmployeeMasterTab: React.FC<Props> = ({
               {year}년 12월 31일 기준 사원 마스터 ({employees.length}명)
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              퇴사자는 평가 대상이 아니므로 행 삭제로 정리하며, 표 안의 셀을 엑셀처럼 직접 클릭하여 수정합니다.
+              퇴사자는 행 삭제로 정리하며, 날짜는 달력 아이콘 클릭 또는 8자리 숫자(예: 20260101)로 바로 입력할 수 있습니다.
             </p>
           </div>
         </div>
@@ -213,9 +260,9 @@ export const EmployeeMasterTab: React.FC<Props> = ({
               <th className="p-2.5 w-28">부서</th>
               <th className="p-2.5 w-24">직위</th>
               <th className="p-2.5 text-center w-24">상태</th>
-              <th className="p-2.5 text-center w-28">생년월일</th>
-              <th className="p-2.5 text-center w-28">입사일자</th>
-              <th className="p-2.5 text-center w-28">최근승진일</th>
+              <th className="p-2.5 text-center w-36">생년월일</th>
+              <th className="p-2.5 text-center w-36">입사일자</th>
+              <th className="p-2.5 text-center w-36">최근승진일</th>
               <th className="p-2.5">비고 / 담당직무</th>
               <th className="p-2.5 text-center w-16 text-rose-600">삭제</th>
             </tr>
@@ -280,30 +327,27 @@ export const EmployeeMasterTab: React.FC<Props> = ({
                         {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
+
+                    {/* 스마트 날짜 입력창 3종 (생년월일, 입사일자, 최근승진일) */}
                     <td className="p-1.5 text-center">
-                      <input
-                        type="date"
-                        value={emp.birth_date || ""}
-                        onChange={e => onCellChange(rowKey, "birth_date", e.target.value)}
-                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      <DateCellInput
+                        value={emp.birth_date}
+                        onChange={val => onCellChange(rowKey, "birth_date", val)}
                       />
                     </td>
                     <td className="p-1.5 text-center">
-                      <input
-                        type="date"
-                        value={emp.hire_date || ""}
-                        onChange={e => onCellChange(rowKey, "hire_date", e.target.value)}
-                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      <DateCellInput
+                        value={emp.hire_date}
+                        onChange={val => onCellChange(rowKey, "hire_date", val)}
                       />
                     </td>
                     <td className="p-1.5 text-center">
-                      <input
-                        type="date"
-                        value={emp.promo_date || ""}
-                        onChange={e => onCellChange(rowKey, "promo_date", e.target.value)}
-                        className="px-1 py-0.5 text-[11px] bg-transparent focus:bg-white focus:outline-none rounded"
+                      <DateCellInput
+                        value={emp.promo_date}
+                        onChange={val => onCellChange(rowKey, "promo_date", val)}
                       />
                     </td>
+
                     <td className="p-1.5">
                       <input
                         type="text"
