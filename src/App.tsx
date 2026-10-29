@@ -165,8 +165,16 @@ export default function App() {
     });
   };
 
-  const handleDeleteRow = (empNo: string) => {
-    if (!confirm(`사번 ${empNo} 직원을 이번 연도 명부에서 삭제하시겠습니까?`)) return;
+  // 행 삭제 핸들러: 화면 목록 및 DB 영구 삭제 연동
+  const handleDeleteRow = async (empNo: string) => {
+    const targetEmp = (snapshotStore[year] || []).find(e => e.emp_no === empNo);
+    const empLabel = targetEmp ? `${targetEmp.name}(${targetEmp.emp_no})` : empNo;
+
+    if (!window.confirm(`[${year}년 사원 마스터]\n${empLabel} 님을 이번 연도 마스터에서 삭제하시겠습니까?\n(DB에서도 해당 연도 스냅샷이 함께 삭제됩니다.)`)) {
+      return;
+    }
+
+    // 1. 화면 상태 및 로컬 캐시 즉시 반영
     setSnapshotStore(prev => {
       const updated = {
         ...prev,
@@ -175,9 +183,18 @@ export default function App() {
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
     });
+
+    // 2. Supabase DB 영구 삭제
     const sb = getSupabase();
     if (sb) {
-      sb.from("employee_snapshots").delete().match({ snapshot_year: year, emp_no: empNo }).then(() => {});
+      const { error } = await sb
+        .from("employee_snapshots")
+        .delete()
+        .match({ snapshot_year: year, emp_no: empNo });
+
+      if (error) {
+        alert("DB 삭제 중 오류가 발생했습니다: " + error.message);
+      }
     }
   };
 
@@ -266,7 +283,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 상단 연도 선택기 ('0000년 평가'로 수정) */}
+          {/* 상단 연도 선택기 */}
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button onClick={() => handleYearChange(year - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
               <i className="fa-solid fa-chevron-left text-xs" />
