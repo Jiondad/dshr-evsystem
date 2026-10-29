@@ -2,7 +2,7 @@ import { Grade, WeightItem, EmployeeSnapshot, EvaluationItem } from '../types/hr
 
 export const DEPARTMENTS = ["관리팀", "영업팀", "생산팀"];
 
-// 직위 서열 목록: 반장을 사원 위로 배치
+// 직위 서열: 반장을 사원 위(주임 다음)로 배치
 export const POSITIONS = [
   "회장", "부회장", "사장", "부사장", "전무", "상무", "이사",
   "실장", "부장", "차장", "과장", "대리", "주임", "반장", "사원"
@@ -49,6 +49,19 @@ export const POSITION_WEIGHTS: Record<string, WeightItem> = {
   "사원": { competency: 0.70, performance: 0.30, selfDev: 0.00, mentoring: 0.00 }
 };
 
+// 등급별 권장 배분율 및 한도
+export const GRADE_LIMITS: Record<Grade, { targetPct: number; limitPct: number }> = {
+  S: { targetPct: 5, limitPct: 10 },
+  A: { targetPct: 15, limitPct: 20 },
+  B: { targetPct: 65, limitPct: 75 },
+  C: { targetPct: 10, limitPct: 15 },
+  D: { targetPct: 5, limitPct: 10 }
+};
+
+export function recommendedCount(total: number, pct: number): number {
+  return Math.round((total * pct) / 100 * 10) / 10;
+}
+
 export function weightsFor(pos: string): WeightItem {
   return POSITION_WEIGHTS[pos] || { competency: 0.70, performance: 0.30, selfDev: 0.00, mentoring: 0.00 };
 }
@@ -82,7 +95,6 @@ export function finalScore(pos: string, ev?: EvaluationItem): number {
   const m = typeof ev.mentoring === "number" ? ev.mentoring : 0;
   const adj = typeof ev.adjust === "number" ? ev.adjust : 0;
 
-  // 점수가 하나도 입력되지 않은 경우 0
   if (ev.competency === "" && ev.performance === "" && ev.selfDev === "" && ev.mentoring === "") {
     return 0;
   }
@@ -92,7 +104,6 @@ export function finalScore(pos: string, ev?: EvaluationItem): number {
   return Math.round(total * 10) / 10;
 }
 
-// 부서 및 직위 서열 기반 정렬 함수
 export function sortByDeptAndPosition(a: EmployeeSnapshot, b: EmployeeSnapshot): number {
   const deptA = DEPT_ORDER[a.dept] || 99;
   const deptB = DEPT_ORDER[b.dept] || 99;
@@ -102,6 +113,5 @@ export function sortByDeptAndPosition(a: EmployeeSnapshot, b: EmployeeSnapshot):
   const posB = POSITION_ORDER[b.position] || 99;
   if (posA !== posB) return posA - posB;
 
-  // 직위까지 같으면 입사일자 순
   return (a.hire_date || "").localeCompare(b.hire_date || "");
 }
