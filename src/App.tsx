@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { EmployeeSnapshot, EvalStore, SnapshotStore, Grade, AuthUser, LockStore } from './types/hr';
+import { EmployeeSnapshot, EvalStore, SnapshotStore, Grade, AuthUser, LockStore, DeptSubmissionStore } from './types/hr';
 import { DEPARTMENTS, finalScore, pointsFor, sortByDeptAndPosition, gradeFromScore } from './lib/constants';
 import { getSupabase } from './lib/supabase';
 import { DashboardCards } from './components/DashboardCards';
@@ -26,6 +26,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [lockStore, setLockStore] = useState<LockStore>({});
+  const [submissionStore, setSubmissionStore] = useState<DeptSubmissionStore>({});
+
   const [isWeightGuideOpen, setIsWeightGuideOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [sbConnected, setSbConnected] = useState(() => !!getSupabase());
@@ -38,7 +40,6 @@ export default function App() {
     return {};
   });
 
-  // 최종 대표이사 평가 원장 저장소
   const [evalStore, setEvalStore] = useState<EvalStore>(() => {
     const saved = localStorage.getItem("ds_eval_store_v10");
     if (saved) {
@@ -47,7 +48,6 @@ export default function App() {
     return {};
   });
 
-  // 1차 부서장 평가 저장소
   const [deptEvalStore, setDeptEvalStore] = useState<EvalStore>(() => {
     const saved = localStorage.getItem("ds_dept_eval_store_v1");
     if (saved) {
@@ -65,11 +65,12 @@ export default function App() {
         setIsLoading(true);
       }
 
-      const [empRes, evalRes, deptEvalRes, lockRes] = await Promise.all([
+      const [empRes, evalRes, deptEvalRes, lockRes, subRes] = await Promise.all([
         sb.from("employee_snapshots").select("*").order("emp_no"),
         sb.from("annual_evaluations").select("*"),
         sb.from("dept_evaluations").select("*"),
-        sb.from("evaluation_locks").select("*")
+        sb.from("evaluation_locks").select("*"),
+        sb.from("dept_submissions").select("*")
       ]);
 
       if (empRes.data) {
@@ -130,6 +131,20 @@ export default function App() {
         });
         setLockStore(locks);
       }
+
+      if (subRes.data) {
+        const subs: DeptSubmissionStore = {};
+        subRes.data.forEach((s: any) => {
+          const y = Number(s.eval_year);
+          if (!subs[y]) subs[y] = {};
+          subs[y][s.dept] = {
+            isSubmitted: !!s.is_submitted,
+            submittedBy: s.submitted_by,
+            submittedAt: s.submitted_at
+          };
+        });
+        setSubmissionStore(subs);
+      }
     } catch (err) {
       console.error("데이터 로드 예외:", err);
     } finally {
@@ -164,6 +179,71 @@ export default function App() {
   const isCurrentYearLocked = !!lockStore[year];
   const isDeptLeader = currentUser?.role === 'LV2_DEPT_LEADER';
   const isAdmin = currentUser?.role === "LV0_ADMIN";
+
+  // 현재 로그인 부서장의 1차 평가 제출 여부
+  const currentDeptSubmission = currentUser?.dept ? submissionStore[year]?.[currentUser.dept] : undefined;
+  const isCurrentDeptSubmitted = !!currentDeptSubmission?.isSubmitted;
+
+  // 부서장: 1차 평가 제출(확정) 처리
+  const handleSubmitDeptEval = async () => {
+    if (!isDeptLeader || !currentUser.dept) return;
+
+    // 미작성 인원 검증 (생산팀 임의호 실장 제외)
+    const targetEmps = (snapshotStore[year] || []).filter(e => e.dept === currentUser.dept && e.status === "재직" && e.emp_no !== '140004');
+    const myDeptEvals = deptEvalStore[year] || {};
+    const uncompleted = targetEmps.filter(e => {
+      const ev = myDeptEvals[e.emp_no];
+      return !ev || ev.competency === "" || ev.performance === "";
+    });
+
+    if (uncompleted.length > 0) {
+      const names = uncompleted.map(e => e.name).join(", ");
+      alert(`[제출 불가] 아직 평가 점수가 입력되지 않은 사원이 있습니다:\n(${names})\n모든 부서원의 평가를 마친 후 제출해주세요.`);
+      return;
+    }
+
+    if (!window.confirm(`[${currentUser.dept} 1차 인사평가 최종 제출]\n제출 후에는 평가 점수 수정이 잠기며, 대표이사 최종평가로 전달됩니다.\n정말 제출하시겠습니까?`)) {
+      return;
+    }
+
+    // 1. 점수 먼저 DB 저장
+    await handleSaveAllEvals();
+
+    // 2. 제출 상태 DB 기록
+    const sb = getSupabase();
+    if (sb) {
+      await sb.from("dept_submissions").upsert({
+        eval_year: year,
+        dept: currentUser.dept,
+        is_submitted: true,
+        submitted_by: currentUser.name,
+        submitted_at: new Date().toISOString()
+      });
+      alert(`[제출 완료] ${year}년도 ${currentUser.dept} 1차 인사평가가 성공적으로 제출되었습니다.`);
+      await loadAllDataFromDB();
+    }
+  };
+
+  // 관리자: 부서 1차 평가 제출 취소/수정 허용(반려) 처리
+  const handleUnlockDeptSubmission = async (targetDept: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm(`[${targetDept}] 부서의 1차 평가 제출 상태를 해제하여 부서장의 점수 재수정을 허용하시겠습니까?`)) {
+      return;
+    }
+
+    const sb = getSupabase();
+    if (sb) {
+      await sb.from("dept_submissions").upsert({
+        eval_year: year,
+        dept: targetDept,
+        is_submitted: false,
+        submitted_by: currentUser.name,
+        submitted_at: new Date().toISOString()
+      });
+      alert(`[수정 허용] ${targetDept} 1차 평가가 재수정 가능한 상태로 변경되었습니다.`);
+      await loadAllDataFromDB();
+    }
+  };
 
   const handleToggleLock = async () => {
     if (!isAdmin) {
@@ -208,17 +288,28 @@ export default function App() {
     });
   }, [currentYearEmployees, dept, searchQuery, includeRetired, isDeptLeader, currentUser]);
 
-  // ★ 부서장(LV.2)이라도 해당 연도의 dept_evaluations가 없으면 기존 원장(evalStore)을 안전하게 읽어옴
-  const currentYearEvals = useMemo(() => {
-    if (isDeptLeader) {
-      const deptData = deptEvalStore[year] || {};
-      if (Object.keys(deptData).length > 0) return deptData;
-      return evalStore[year] || {};
-    }
-    return evalStore[year] || {};
-  }, [isDeptLeader, deptEvalStore, evalStore, year]);
+  const currentYearEvals = isDeptLeader
+    ? (deptEvalStore[year] || {})
+    : (evalStore[year] || {});
 
   const currentDeptEvals = deptEvalStore[year] || {};
+
+  // 부서별 1차 평가 진행률 통계 산출
+  const deptProgressStats = useMemo(() => {
+    const stats: Record<string, { total: number; done: number; isSubmitted: boolean }> = {};
+    DEPARTMENTS.forEach(d => {
+      // 생산팀 임의호 실장은 1차 평가 대상에서 제외
+      const emps = currentYearEmployees.filter(e => e.dept === d && e.status === '재직' && e.emp_no !== '140004');
+      const dEvals = deptEvalStore[year] || {};
+      const doneCount = emps.filter(e => {
+        const ev = dEvals[e.emp_no];
+        return ev && ev.competency !== "" && ev.performance !== "";
+      }).length;
+      const isSub = !!submissionStore[year]?.[d]?.isSubmitted;
+      stats[d] = { total: emps.length, done: doneCount, isSubmitted: isSub };
+    });
+    return stats;
+  }, [currentYearEmployees, deptEvalStore, submissionStore, year]);
 
   const counts = useMemo(() => {
     const c: Record<Grade, number> = { S: 0, A: 0, B: 0, C: 0, D: 0 };
@@ -236,6 +327,10 @@ export default function App() {
   const handleEvalCellChange = (empNo: string, field: string, val: any) => {
     if (isCurrentYearLocked) {
       alert("해당 연도의 평가는 확정 및 마감되어 수정할 수 없습니다.");
+      return;
+    }
+    if (isDeptLeader && isCurrentDeptSubmitted) {
+      alert("1차 평가가 이미 제출 완료되어 점수를 수정할 수 없습니다. (수정이 필요하면 관리자에게 요청하세요)");
       return;
     }
 
@@ -366,6 +461,11 @@ export default function App() {
       alert("해당 연도의 평가는 확정 및 마감되어 저장할 수 없습니다.");
       return;
     }
+    if (isDeptLeader && isCurrentDeptSubmitted) {
+      alert("1차 평가가 이미 제출 완료되어 저장할 수 없습니다.");
+      return;
+    }
+
     const sb = getSupabase();
     if (!sb) {
       alert("Supabase 설정이 없어 브라우저에만 저장되었습니다.");
@@ -395,7 +495,7 @@ export default function App() {
       const { error } = await sb.from("dept_evaluations").upsert(records, { onConflict: "eval_year,emp_no" });
       if (error) alert("부서장 평가 저장 실패: " + error.message);
       else {
-        alert(`${year}년도 ${currentUser?.dept} 1차 부서장 평가(${records.length}명)가 DB에 저장되었습니다.`);
+        alert(`${year}년도 ${currentUser?.dept} 1차 부서장 평가(${records.length}명)가 임시 저장되었습니다.`);
         await loadAllDataFromDB();
       }
     } else {
@@ -511,7 +611,7 @@ export default function App() {
               </span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {isDeptLeader ? `소속 [${currentUser.dept}] 직무/역량 평가 수행` : '10개년 평가 원본 보존 · 사원 스냅샷 마스터 · 과거 3개년 승진 포인트 연동'}
+              {isDeptLeader ? `소속 [${currentUser.dept}] 1차 직무/역량 평가 수행` : '10개년 평가 원본 보존 · 사원 스냅샷 마스터 · 과거 3개년 승진 포인트 연동'}
             </p>
           </div>
         </div>
@@ -593,15 +693,22 @@ export default function App() {
           {tab === "input" && (
             <div className="space-y-5">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3 no-print">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-400 mr-2 flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
                     <i className="fa-solid fa-users text-[11px]" /> 부서 필터
                   </span>
 
                   {isDeptLeader ? (
-                    <span className="px-3 py-1.5 text-xs font-black rounded-xl bg-purple-100 text-purple-900 border border-purple-200">
-                      {currentUser.dept} 전용 ({filteredEmps.length}명)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1.5 text-xs font-black rounded-xl bg-purple-100 text-purple-900 border border-purple-200">
+                        {currentUser.dept} 전용 ({filteredEmps.length}명)
+                      </span>
+                      {isCurrentDeptSubmitted && (
+                        <span className="px-2.5 py-1 text-[11px] font-bold rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                          <i className="fa-solid fa-check-circle text-blue-600" /> 제출완료 ({currentDeptSubmission?.submittedAt?.slice(0, 10)})
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <button
@@ -612,15 +719,37 @@ export default function App() {
                       </button>
                       {DEPARTMENTS.map(d => {
                         const count = currentYearEmployees.filter(e => e.dept === d).length;
+                        const p = deptProgressStats[d];
                         return (
                           <button
                             key={d} onClick={() => setDept(d)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1.5 ${dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                           >
-                            {d} ({count})
+                            <span>{d} ({count})</span>
+                            {/* 부서별 1차 평가 진행률 배지 */}
+                            {p && (
+                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                                p.isSubmitted ? 'bg-blue-600 text-white' :
+                                p.done === p.total && p.total > 0 ? 'bg-emerald-600 text-white' :
+                                'bg-slate-300 text-slate-700'
+                              }`}>
+                                {p.isSubmitted ? '제출됨' : `${p.done}/${p.total}`}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
+
+                      {/* 관리자: 선택된 부서의 제출 취소/해제 버튼 */}
+                      {isAdmin && dept !== "전체" && submissionStore[year]?.[dept]?.isSubmitted && (
+                        <button
+                          onClick={() => handleUnlockDeptSubmission(dept)}
+                          className="ml-2 px-2.5 py-1 text-[11px] font-bold rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 flex items-center gap-1"
+                          title="부서장의 1차 평가 점수 수정을 다시 허용합니다"
+                        >
+                          <i className="fa-solid fa-lock-open text-[10px]" /> [{dept}] 제출 취소/수정 허용
+                        </button>
+                      )}
                     </>
                   )}
 
@@ -648,6 +777,7 @@ export default function App() {
                       <i className="fa-solid fa-print mr-1" /> 출력
                     </button>
                   )}
+
                   {isAdmin && (
                     <button
                       onClick={handleToggleLock}
@@ -657,14 +787,36 @@ export default function App() {
                       {isCurrentYearLocked ? `${year}년 잠김` : `${year}년 잠금`}
                     </button>
                   )}
+
+                  {/* 임시저장 버튼 */}
                   <button
                     onClick={handleSaveAllEvals}
-                    disabled={isCurrentYearLocked}
-                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl text-white ${isCurrentYearLocked ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
+                    disabled={isCurrentYearLocked || (isDeptLeader && isCurrentDeptSubmitted)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl text-white ${
+                      isCurrentYearLocked || (isDeptLeader && isCurrentDeptSubmitted)
+                        ? 'bg-slate-400 cursor-not-allowed'
+                        : isDeptLeader ? 'bg-slate-700 hover:bg-slate-600' : 'bg-blue-600 hover:bg-blue-500'
+                    }`}
                   >
                     <i className="fa-solid fa-cloud-arrow-up mr-1" />
-                    {isDeptLeader ? '1차 평가 저장' : '최종 평가 저장'}
+                    {isDeptLeader ? '1차 평가 임시저장' : '최종 평가 저장'}
                   </button>
+
+                  {/* 부서장 전용 1차 평가 최종 제출 버튼 */}
+                  {isDeptLeader && (
+                    <button
+                      onClick={handleSubmitDeptEval}
+                      disabled={isCurrentYearLocked || isCurrentDeptSubmitted}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-xl text-white shadow-sm flex items-center gap-1.5 ${
+                        isCurrentYearLocked || isCurrentDeptSubmitted
+                          ? 'bg-slate-400 cursor-not-allowed'
+                          : 'bg-purple-600 hover:bg-purple-500 shadow-purple-500/20'
+                      }`}
+                    >
+                      <i className="fa-solid fa-paper-plane text-[11px]" />
+                      {isCurrentDeptSubmitted ? '제출 완료됨' : '1차 평가 최종 제출'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -679,6 +831,7 @@ export default function App() {
                 evaluations={currentYearEvals}
                 deptEvaluations={currentDeptEvals}
                 isLocked={isCurrentYearLocked}
+                isDeptSubmitted={isCurrentDeptSubmitted}
                 onCellChange={handleEvalCellChange}
               />
             </div>
