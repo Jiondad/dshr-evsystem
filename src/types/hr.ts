@@ -1,5 +1,12 @@
 export type Grade = "S" | "A" | "B" | "C" | "D";
 export type StatusType = "재직" | "휴직" | "퇴직";
+export type UserRole = "LV0_ADMIN" | "LV1_EVALUATOR";
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  role: UserRole;
+}
 
 export interface WeightItem {
   competency: number;
@@ -9,7 +16,7 @@ export interface WeightItem {
 }
 
 export interface EmployeeSnapshot {
-  _rowId?: string; // 렌더링 포커스 유지용 고유 불변 키
+  _rowId?: string;
   snapshot_year: number;
   emp_no: string;
   name: string;
@@ -36,3 +43,4 @@ export interface EvaluationItem {
 
 export type SnapshotStore = Record<number, EmployeeSnapshot[]>;
 export type EvalStore = Record<number, Record<string, EvaluationItem>>;
+export type LockStore = Record<number, boolean>;
