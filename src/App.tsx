@@ -14,37 +14,54 @@ export default function App() {
   const [tab, setTab] = useState<"input" | "promo" | "snapshot_master">("promo");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [includeRetired, setIncludeRetired] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [isWeightGuideOpen, setIsWeightGuideOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [sbConnected, setSbConnected] = useState(() => !!getSupabase());
 
-  const [snapshotStore, setSnapshotStore] = useState<SnapshotStore>({});
-  const [evalStore, setEvalStore] = useState<EvalStore>({});
+  // 초기 렌더링 지연을 막기 위해 로컬 캐시가 있으면 즉시 띄움
+  const [snapshotStore, setSnapshotStore] = useState<SnapshotStore>(() => {
+    const saved = localStorage.getItem("ds_snapshot_store_v1");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
 
+  const [evalStore, setEvalStore] = useState<EvalStore>(() => {
+    const saved = localStorage.getItem("ds_eval_store_v10");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
+
+  // DB에서 데이터 병렬(Parallel) 즉시 로드 (3초 이상 지연 원천 차단)
   const loadAllDataFromDB = async () => {
     const sb = getSupabase();
     if (!sb) {
       setIsLoading(false);
-      alert("⚠️ Supabase DB 연결 정보가 설정되지 않았습니다. 우측 상단의 [DB 설정]을 확인해주세요.");
       return;
     }
 
     try {
-      setIsLoading(true);
+      // 로컬에 이미 데이터가 있으면 로딩 스피너 없이 백그라운드 갱신
+      if (Object.keys(snapshotStore).length === 0) {
+        setIsLoading(true);
+      }
 
-      // 1. 사원 스냅샷 전체 조회
-      const { data: empData, error: empErr } = await sb
-        .from("employee_snapshots")
-        .select("*")
-        .order("emp_no");
+      // 두 쿼리를 병렬로 동시 실행
+      const [empRes, evalRes] = await Promise.all([
+        sb.from("employee_snapshots").select("*").order("emp_no"),
+        sb.from("annual_evaluations").select("*")
+      ]);
 
-      if (empErr) {
-        alert("❌ 사원 데이터 조회 실패 (DB 차단):\n" + empErr.message + "\n(코드: " + empErr.code + ")");
-      } else if (empData) {
+      if (empRes.error) {
+        console.error("사원 스냅샷 조회 에러:", empRes.error);
+      } else if (empRes.data) {
         const groupedSnap: SnapshotStore = {};
-        empData.forEach((e: any) => {
+        empRes.data.forEach((e: any) => {
           const y = Number(e.snapshot_year);
           if (!groupedSnap[y]) groupedSnap[y] = [];
           groupedSnap[y].push({
@@ -56,16 +73,11 @@ export default function App() {
         localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(groupedSnap));
       }
 
-      // 2. 평가 데이터 전체 조회
-      const { data: evalData, error: evalErr } = await sb
-        .from("annual_evaluations")
-        .select("*");
-
-      if (evalErr) {
-        alert("❌ 평가 데이터 조회 실패 (DB 차단):\n" + evalErr.message);
-      } else if (evalData) {
+      if (evalRes.error) {
+        console.error("평가 데이터 조회 에러:", evalRes.error);
+      } else if (evalRes.data) {
         const groupedEval: EvalStore = {};
-        evalData.forEach((r: any) => {
+        evalRes.data.forEach((r: any) => {
           const y = Number(r.eval_year);
           if (!groupedEval[y]) groupedEval[y] = {};
           groupedEval[y][r.emp_no] = {
@@ -82,8 +94,8 @@ export default function App() {
         setEvalStore(groupedEval);
         localStorage.setItem("ds_eval_store_v10", JSON.stringify(groupedEval));
       }
-    } catch (err: any) {
-      alert("통신 오류 발생: " + (err.message || err));
+    } catch (err) {
+      console.error("동기화 예외 발생:", err);
     } finally {
       setIsLoading(false);
     }
