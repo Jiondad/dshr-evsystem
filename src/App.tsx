@@ -35,12 +35,10 @@ export default function App() {
     return { 2025: DEFAULT_SEED_2025 };
   });
 
-  // DB에서 해당 연도 사원 명부 및 평가 데이터 즉시 불러오기
   const loadYearDataFromDB = async (targetYear: number) => {
     const sb = getSupabase();
     if (!sb) return;
 
-    // 1. 사원 스냅샷 조회
     const { data: empData, error: empErr } = await sb
       .from("employee_snapshots")
       .select("*")
@@ -55,7 +53,6 @@ export default function App() {
       });
     }
 
-    // 2. 평가 데이터 조회
     const { data: evalData, error: evalErr } = await sb
       .from("annual_evaluations")
       .select("*")
@@ -83,7 +80,6 @@ export default function App() {
     }
   };
 
-  // 연도 변경 시 실행
   const handleYearChange = (targetYear: number) => {
     setYear(targetYear);
     loadYearDataFromDB(targetYear);
@@ -93,7 +89,6 @@ export default function App() {
     loadYearDataFromDB(year);
   }, [year, sbConnected]);
 
-  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 우선 정렬 사원 목록
   const currentYearEmployees = useMemo(() => {
     const rawList = snapshotStore[year] || [];
     return [...rawList].sort(sortByDeptAndPosition);
@@ -135,12 +130,13 @@ export default function App() {
     });
   };
 
-  // 행별 인덱스 기반으로 셀 값 수정 지원 (사번이 비어있어도 수정 가능)
-  const handleSnapshotCellChange = (targetIndex: number, field: keyof EmployeeSnapshot, val: any) => {
+  // 특정 사원 객체를 직접 찾아서 값 변경 (정렬 여부 무관)
+  const handleSnapshotCellChange = (targetEmp: EmployeeSnapshot, field: keyof EmployeeSnapshot, val: any) => {
     setSnapshotStore(prev => {
       const list = [...(prev[year] || [])];
-      if (list[targetIndex]) {
-        list[targetIndex] = { ...list[targetIndex], [field]: val };
+      const idx = list.indexOf(targetEmp);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], [field]: val };
       }
       const updated = { ...prev, [year]: list };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
@@ -148,11 +144,10 @@ export default function App() {
     });
   };
 
-  // 행 추가 시 사번을 빈값("")으로 초기 생성
   const handleAddRow = () => {
     const newEmp: EmployeeSnapshot = {
       snapshot_year: year,
-      emp_no: "", // 사번 초기 빈값
+      emp_no: "",
       name: "",
       dept: "생산팀",
       position: "사원",
@@ -169,27 +164,25 @@ export default function App() {
     });
   };
 
-  // 인덱스 및 사번 기반 삭제
-  const handleDeleteRow = async (targetIndex: number, empNo: string) => {
-    const targetEmp = (snapshotStore[year] || [])[targetIndex];
-    const empLabel = targetEmp?.name ? `${targetEmp.name}(${targetEmp.emp_no || '미지정'})` : (empNo || '해당 행');
+  // 대상 사원 객체를 직접 전달받아 정확하게 삭제
+  const handleDeleteRow = async (targetEmp: EmployeeSnapshot) => {
+    const empLabel = targetEmp?.name ? `${targetEmp.name}(${targetEmp.emp_no || '미지정'})` : (targetEmp.emp_no || '해당 사원');
 
-    if (!window.confirm(`[${year}년 사원 마스터]\n${empLabel}을(를) 마스터에서 삭제하시겠습니까?`)) {
+    if (!window.confirm(`[${year}년 사원 마스터]\n${empLabel} 님을 마스터에서 삭제하시겠습니까?`)) {
       return;
     }
 
     setSnapshotStore(prev => {
-      const list = [...(prev[year] || [])];
-      list.splice(targetIndex, 1);
+      const list = (prev[year] || []).filter(e => e !== targetEmp);
       const updated = { ...prev, [year]: list };
       localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
       return updated;
     });
 
-    if (empNo) {
+    if (targetEmp.emp_no) {
       const sb = getSupabase();
       if (sb) {
-        await sb.from("employee_snapshots").delete().match({ snapshot_year: year, emp_no: empNo });
+        await sb.from("employee_snapshots").delete().match({ snapshot_year: year, emp_no: targetEmp.emp_no });
       }
     }
   };
@@ -217,7 +210,6 @@ export default function App() {
       return;
     }
 
-    // 사번 미입력 검증
     const emptyNo = currentYearEmployees.some(e => !e.emp_no || e.emp_no.trim() === "");
     if (emptyNo) {
       alert("사번이 입력되지 않은 행이 있습니다. 모든 사원의 사번을 입력한 후 저장해주세요.");
