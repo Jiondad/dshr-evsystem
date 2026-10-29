@@ -38,16 +38,18 @@ export const EvalInputTab: React.FC<Props> = ({ year, dept, employees, evaluatio
               <th className="p-3 text-center w-16">사번</th>
               <th className="p-3 w-20">성명</th>
               <th className="p-3 w-24">부서</th>
-              <th className="p-3 w-28">직위</th>
-              <th className="p-2.5 text-center w-20 bg-blue-50/40">역량</th>
-              <th className="p-2.5 text-center w-20 bg-blue-50/40">성과</th>
-              <th className="p-2.5 text-center w-20 bg-blue-50/40">자기계발</th>
-              <th className="p-2.5 text-center w-20 bg-blue-50/40">부하육성</th>
-              <th className="p-2.5 text-center w-36">가감점 / 사유</th>
+              <th className="p-3 w-24">직위</th>
+              <th className="p-3 text-center w-24 bg-slate-50">입사일</th>
+              <th className="p-3 text-center w-24 bg-slate-50">최근승진일</th>
+              <th className="p-2 text-center w-16 bg-blue-50/40">역량</th>
+              <th className="p-2 text-center w-16 bg-blue-50/40">성과</th>
+              <th className="p-2 text-center w-16 bg-blue-50/40">자기계발</th>
+              <th className="p-2 text-center w-16 bg-blue-50/40">부하육성</th>
+              <th className="p-2 text-center w-36">가감점 / 사유</th>
               <th className="p-3 text-center w-24 bg-slate-200/70 font-black text-slate-800">최종 환산점수</th>
-              <th className="p-3 text-center w-24">최종 등급</th>
+              <th className="p-3 text-center w-20">최종 등급</th>
               <th className="p-3 text-center w-20">승진 포인트</th>
-              <th className="p-3">특이사항</th>
+              <th className="p-3 w-40">특이사항</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -68,72 +70,107 @@ export const EvalInputTab: React.FC<Props> = ({ year, dept, employees, evaluatio
                       ({w.competency * 100}/{w.performance * 100}/{w.selfDev * 100}/{w.mentoring * 100})
                     </div>
                   </td>
+                  <td className="p-2.5 text-center font-mono text-slate-500 text-[11px] bg-slate-50/40">
+                    {emp.hire_date || '-'}
+                  </td>
+                  <td className="p-2.5 text-center font-mono text-slate-500 text-[11px] bg-slate-50/40">
+                    {emp.promo_date || '-'}
+                  </td>
+
                   <td className="p-2 text-center bg-blue-50/20">
                     {w.competency > 0 ? (
                       <input
-                        type="number" step="0.5" value={ev.competency}
+                        type="number"
+                        step="0.5"
+                        value={ev.competency}
                         onChange={e => onCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                       />
                     ) : <span className="text-slate-300 font-bold">-</span>}
                   </td>
+
                   <td className="p-2 text-center bg-blue-50/20">
                     {w.performance > 0 ? (
                       <input
-                        type="number" step="0.5" value={ev.performance}
+                        type="number"
+                        step="0.5"
+                        value={ev.performance}
                         onChange={e => onCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                       />
                     ) : <span className="text-slate-300 font-bold">-</span>}
                   </td>
+
                   <td className="p-2 text-center bg-blue-50/20">
                     {w.selfDev > 0 ? (
                       <input
-                        type="number" step="0.5" value={ev.selfDev}
+                        type="number"
+                        step="0.5"
+                        value={ev.selfDev}
                         onChange={e => onCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                       />
                     ) : <span className="text-slate-300 font-bold">-</span>}
                   </td>
+
                   <td className="p-2 text-center bg-blue-50/20">
                     {w.mentoring > 0 ? (
                       <input
-                        type="number" step="0.5" value={ev.mentoring}
+                        type="number"
+                        step="0.5"
+                        value={ev.mentoring}
                         onChange={e => onCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        className="w-14 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                       />
                     ) : <span className="text-slate-300 font-bold">-</span>}
                   </td>
+
                   <td className="p-2 text-center">
-                    <div className="flex items-center gap-1.5 justify-center">
+                    <div className="flex items-center gap-1 justify-center">
                       <input
-                        type="number" step="0.5" placeholder="±" value={ev.adjust}
+                        type="number"
+                        step="0.5"
+                        placeholder="±"
+                        value={ev.adjust}
                         onChange={e => onCellChange(emp.emp_no, 'adjust', e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs shadow-sm"
+                        className="w-11 border border-slate-200 rounded-lg px-1 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs shadow-sm"
                       />
                       <input
-                        type="text" placeholder="사유입력" value={ev.adjustReason}
+                        type="text"
+                        placeholder="사유"
+                        value={ev.adjustReason}
                         onChange={e => onCellChange(emp.emp_no, 'adjustReason', e.target.value)}
-                        className="w-24 border border-slate-200 rounded-lg px-2 py-1 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        className="w-20 border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                       />
                     </div>
                   </td>
-                  <td className="p-2.5 text-center font-black text-blue-700 bg-slate-100/60 text-sm tracking-tight">{fScore.toFixed(1)}</td>
+
+                  <td className="p-2.5 text-center font-black text-blue-700 bg-slate-100/60 text-sm tracking-tight">
+                    {fScore.toFixed(1)}
+                  </td>
+
                   <td className="p-2 text-center">
                     <select
-                      value={ev.grade} onChange={e => onCellChange(emp.emp_no, 'grade', e.target.value as Grade)}
-                      className="border border-slate-300 rounded-lg px-2 py-1 font-extrabold bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={ev.grade}
+                      onChange={e => onCellChange(emp.emp_no, 'grade', e.target.value as Grade)}
+                      className="border border-slate-300 rounded-lg px-1.5 py-1 font-extrabold bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">-</option>
                       {GRADES.map(g => <option key={g} value={g}>{g}등급</option>)}
                     </select>
                   </td>
+
                   <td className="p-2.5 text-center">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/60">{points}점</span>
+                    <span className="px-2 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/60">
+                      {points}점
+                    </span>
                   </td>
+
                   <td className="p-2">
                     <input
-                      type="text" placeholder="특이사항 메모" value={ev.note}
+                      type="text"
+                      placeholder="특이사항 메모"
+                      value={ev.note}
                       onChange={e => onCellChange(emp.emp_no, 'note', e.target.value)}
                       className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                     />
