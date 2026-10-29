@@ -35,66 +35,65 @@ export default function App() {
     return { 2025: DEFAULT_SEED_2025 };
   });
 
-  // 연도 이동 시 대상 연도 명부가 없으면 현재 또는 기준 명부를 바탕으로 자동 생성하며 이동
-  const handleYearChange = (targetYear: number) => {
-    setSnapshotStore(prev => {
-      if (!prev[targetYear] || prev[targetYear].length === 0) {
-        const baseList = prev[year] || prev[2025] || DEFAULT_SNAPSHOT_2025;
-        const autoCloned = baseList.map(e => ({
-          ...e,
-          snapshot_year: targetYear
-        }));
-        return {
-          ...prev,
-          [targetYear]: autoCloned
-        };
-      }
-      return prev;
-    });
-    setYear(targetYear);
-  };
-
-  useEffect(() => {
+  // DB에서 해당 연도 사원 명부 및 평가 데이터 즉시 불러오기
+  const loadYearDataFromDB = async (targetYear: number) => {
     const sb = getSupabase();
     if (!sb) return;
 
-    sb.from("employee_snapshots").select("*").eq("snapshot_year", year).order("emp_no").then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        setSnapshotStore(prev => ({ ...prev, [year]: data }));
-      } else if (data && data.length === 0 && year === 2025) {
-        sb.from("employee_snapshots").upsert(DEFAULT_SNAPSHOT_2025).then(() => {});
-      }
-    });
+    // 1. 사원 스냅샷 조회
+    const { data: empData, error: empErr } = await sb
+      .from("employee_snapshots")
+      .select("*")
+      .eq("snapshot_year", targetYear)
+      .order("emp_no");
 
-    sb.from("annual_evaluations").select("*").eq("eval_year", year).then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        const loaded: Record<string, any> = {};
-        data.forEach(r => {
-          loaded[r.emp_no] = {
-            competency: r.comp_score !== null ? r.comp_score : "",
-            performance: r.perf_score !== null ? r.perf_score : "",
-            selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
-            mentoring: r.leadership_score !== null ? r.leadership_score : "",
-            adjust: r.adj_score !== null ? r.adj_score : "",
-            adjustReason: r.adj_reason || "",
-            grade: r.final_grade || "",
-            note: r.remarks || ""
-          };
-        });
-        setEvalStore(prev => ({ ...prev, [year]: loaded }));
-      }
-    });
+    if (!empErr && empData && empData.length > 0) {
+      setSnapshotStore(prev => {
+        const updated = { ...prev, [targetYear]: empData };
+        localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
+        return updated;
+      });
+    }
+
+    // 2. 평가 데이터 조회
+    const { data: evalData, error: evalErr } = await sb
+      .from("annual_evaluations")
+      .select("*")
+      .eq("eval_year", targetYear);
+
+    if (!evalErr && evalData && evalData.length > 0) {
+      const loaded: Record<string, any> = {};
+      evalData.forEach((r: any) => {
+        loaded[r.emp_no] = {
+          competency: r.comp_score !== null ? r.comp_score : "",
+          performance: r.perf_score !== null ? r.perf_score : "",
+          selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
+          mentoring: r.leadership_score !== null ? r.leadership_score : "",
+          adjust: r.adj_score !== null ? r.adj_score : "",
+          adjustReason: r.adj_reason || "",
+          grade: r.final_grade || "",
+          note: r.remarks || ""
+        };
+      });
+      setEvalStore(prev => {
+        const updated = { ...prev, [targetYear]: loaded };
+        localStorage.setItem("ds_eval_store_v10", JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
+  // 연도 변경 시 실행
+  const handleYearChange = (targetYear: number) => {
+    setYear(targetYear);
+    loadYearDataFromDB(targetYear);
+  };
+
+  useEffect(() => {
+    loadYearDataFromDB(year);
   }, [year, sbConnected]);
 
-  useEffect(() => {
-    localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(snapshotStore));
-  }, [snapshotStore]);
-
-  useEffect(() => {
-    localStorage.setItem("ds_eval_store_v10", JSON.stringify(evalStore));
-  }, [evalStore]);
-
-  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 및 직위 순으로 상시 정렬된 사원 목록
+  // 임원 -> 관리팀 -> 영업팀 -> 생산팀 우선 정렬 사원 목록
   const currentYearEmployees = useMemo(() => {
     const rawList = snapshotStore[year] || [];
     return [...rawList].sort(sortByDeptAndPosition);
@@ -130,14 +129,18 @@ export default function App() {
     setEvalStore(prev => {
       const yData = prev[year] || {};
       const empEval = yData[empNo] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
-      return { ...prev, [year]: { ...yData, [empNo]: { ...empEval, [field]: val } } };
+      const updated = { ...prev, [year]: { ...yData, [empNo]: { ...empEval, [field]: val } } };
+      localStorage.setItem("ds_eval_store_v10", JSON.stringify(updated));
+      return updated;
     });
   };
 
   const handleSnapshotCellChange = (empNo: string, field: keyof EmployeeSnapshot, val: any) => {
     setSnapshotStore(prev => {
       const list = prev[year] || [];
-      return { ...prev, [year]: list.map(e => e.emp_no === empNo ? { ...e, [field]: val } : e) };
+      const updated = { ...prev, [year]: list.map(e => e.emp_no === empNo ? { ...e, [field]: val } : e) };
+      localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -155,15 +158,23 @@ export default function App() {
       status: "재직",
       remarks: ""
     };
-    setSnapshotStore(prev => ({ ...prev, [year]: [...(prev[year] || []), newEmp] }));
+    setSnapshotStore(prev => {
+      const updated = { ...prev, [year]: [...(prev[year] || []), newEmp] };
+      localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleDeleteRow = (empNo: string) => {
     if (!confirm(`사번 ${empNo} 직원을 이번 연도 명부에서 삭제하시겠습니까?`)) return;
-    setSnapshotStore(prev => ({
-      ...prev,
-      [year]: (prev[year] || []).filter(e => e.emp_no !== empNo)
-    }));
+    setSnapshotStore(prev => {
+      const updated = {
+        ...prev,
+        [year]: (prev[year] || []).filter(e => e.emp_no !== empNo)
+      };
+      localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
+      return updated;
+    });
     const sb = getSupabase();
     if (sb) {
       sb.from("employee_snapshots").delete().match({ snapshot_year: year, emp_no: empNo }).then(() => {});
@@ -172,14 +183,18 @@ export default function App() {
 
   const handleCopyPrevYear = () => {
     const prevYear = year === 2024 ? 2025 : year - 1;
-    const baseList = snapshotStore[prevYear] || snapshotStore[2025] || [];
+    const baseList = snapshotStore[prevYear] || [];
     if (baseList.length === 0) {
-      alert(`복사할 사원 마스터가 존재하지 않습니다.`);
+      alert(`${prevYear}년도 사원 마스터가 존재하지 않습니다.`);
       return;
     }
     const copied = baseList.map(e => ({ ...e, snapshot_year: year }));
-    setSnapshotStore(prev => ({ ...prev, [year]: copied }));
-    alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 불러왔습니다.`);
+    setSnapshotStore(prev => {
+      const updated = { ...prev, [year]: copied };
+      localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(updated));
+      return updated;
+    });
+    alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 복사했습니다.`);
   };
 
   const handleSaveSnapshotMaster = async () => {
@@ -251,6 +266,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* 상단 연도 선택기 */}
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button onClick={() => handleYearChange(year - 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700">
               <i className="fa-solid fa-chevron-left text-xs" />
@@ -374,7 +390,10 @@ export default function App() {
       <Modals
         isWeightGuideOpen={isWeightGuideOpen} isConfigOpen={isConfigOpen}
         onCloseWeightGuide={() => setIsWeightGuideOpen(false)} onCloseConfig={() => setIsConfigOpen(false)}
-        onConfigSaved={() => setSbConnected(true)}
+        onConfigSaved={() => {
+          setSbConnected(true);
+          loadYearDataFromDB(year);
+        }}
       />
     </div>
   );
