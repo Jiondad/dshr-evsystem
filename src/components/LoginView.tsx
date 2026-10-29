@@ -15,14 +15,19 @@ export const LoginView: React.FC<Props> = ({ onLogin }) => {
     const id = userId.trim();
     const pw = password.trim();
 
-    // 계정 검증 로직
-    if (id === 'admin' && pw === 'daeseong2026!') {
-      onLogin({ id: 'admin', name: '총괄관리자', role: 'LV0_ADMIN' });
-    } else if (id === 'dssteel' && pw === 'dssteelev') {
-      onLogin({ id: 'dssteel', name: '평가위원', role: 'LV1_EVALUATOR' });
-    } else {
-      setErrorMsg('아이디 또는 비밀번호가 올바르지 않습니다.');
+    // 1. 관리자: 아이디 010011 / 비밀번호 010011ad
+    if (id === '010011' && pw === '010011ad') {
+      onLogin({ id: '010011', name: '관리자', role: 'LV0_ADMIN' });
+      return;
     }
+
+    // 2. 평가자: 아이디 dssteel / 비밀번호 dssteelev
+    if (id === 'dssteel' && pw === 'dssteelev') {
+      onLogin({ id: 'dssteel', name: '평가위원', role: 'LV1_EVALUATOR' });
+      return;
+    }
+
+    setErrorMsg('아이디 또는 비밀번호가 올바르지 않습니다.');
   };
 
   return (
@@ -80,18 +85,6 @@ export const LoginView: React.FC<Props> = ({ onLogin }) => {
             <i className="fa-solid fa-right-to-bracket" /> 로그인
           </button>
         </form>
-
-        <div className="pt-4 border-t border-slate-200 text-[11px] text-slate-500 space-y-1.5 bg-slate-50 p-3.5 rounded-2xl">
-          <p className="font-bold text-slate-700 flex items-center gap-1">
-            <i className="fa-solid fa-shield-halved text-blue-600" /> 접속 권한 안내
-          </p>
-          <div className="flex justify-between items-center text-[10.5px]">
-            <span>• 관리자 (LV.0): <strong className="font-mono text-slate-800">010011</strong> / 010011ad</span>
-          </div>
-          <div className="flex justify-between items-center text-[10.5px]">
-            <span>• 평가자 (LV.1): <strong className="font-mono text-slate-800">dssteel</strong> / dssteelev!</span>
-          </div>
-        </div>
       </div>
     </div>
   );
