@@ -415,7 +415,6 @@ export default function App() {
     alert(`${prevYear}년도 명부(${copied.length}명)를 ${year}년도 스냅샷으로 복사했습니다.`);
   };
 
-  // 사원마스터 완전 동기화 저장 핸들러 (사번 변경 시 구 사번 자동 정리)
   const handleSaveSnapshotMaster = async () => {
     const sb = getSupabase();
     if (!sb) {
@@ -430,7 +429,6 @@ export default function App() {
 
     const currentEmpNos = currentYearEmployees.map(e => e.emp_no.trim());
 
-    // 1. 기존 DB에 저장되어 있던 해당 연도 사번 목록 조회
     const { data: dbExisting, error: fetchError } = await sb
       .from("employee_snapshots")
       .select("emp_no")
@@ -441,7 +439,6 @@ export default function App() {
       return;
     }
 
-    // 2. 화면에서 사번이 변경/삭제되어 없어진 구 사번(Orphan) 자동 삭제
     if (dbExisting && dbExisting.length > 0) {
       const removedEmpNos = dbExisting
         .map((r: any) => r.emp_no)
@@ -456,7 +453,6 @@ export default function App() {
       }
     }
 
-    // 3. 최신 사원 명부 적재 (Upsert)
     const cleanData = currentYearEmployees.map(e => ({
       snapshot_year: e.snapshot_year,
       emp_no: e.emp_no.trim(),
@@ -482,7 +478,6 @@ export default function App() {
     }
   };
 
-  // 평가 저장 핸들러 (final_grade null 제약조건 위반 방지 적용)
   const handleSaveAllEvals = async () => {
     if (isCurrentYearLocked) {
       alert("해당 연도의 평가는 확정 및 마감되어 저장할 수 없습니다.");
@@ -650,29 +645,29 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* '평가 결과 입력' 탭 및 '승진심사 매트릭스' 탭에서 연도 전환 컨트롤러 노출 */}
-          {(tab === "input" || tab === "promo") && (
-            <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
-              <button
-                onClick={() => handleYearChange(year - 1)}
-                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
-                title="이전 연도"
-              >
-                <i className="fa-solid fa-chevron-left text-xs" />
-              </button>
-              <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5 whitespace-nowrap">
-                <i className="fa-regular fa-calendar-check" />
-                {tab === "promo" ? `${year}년 승진심사` : `${year}년 평가`}
-              </span>
-              <button
-                onClick={() => handleYearChange(year + 1)}
-                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
-                title="다음 연도"
-              >
-                <i className="fa-solid fa-chevron-right text-xs" />
-              </button>
-            </div>
-          )}
+          {/* 상단 단일 연도 선택 컨트롤러 (모든 탭 공통) */}
+          <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
+            <button
+              onClick={() => handleYearChange(year - 1)}
+              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+              title="이전 연도"
+            >
+              <i className="fa-solid fa-chevron-left text-xs" />
+            </button>
+            <span className="px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5 whitespace-nowrap">
+              <i className="fa-regular fa-calendar-check" />
+              {tab === "promo" ? `${year}년 승진심사` :
+               tab === "snapshot_master" ? `${year}년 사원마스터` :
+               `${year}년 평가`}
+            </span>
+            <button
+              onClick={() => handleYearChange(year + 1)}
+              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition"
+              title="다음 연도"
+            >
+              <i className="fa-solid fa-chevron-right text-xs" />
+            </button>
+          </div>
 
           <div className="flex bg-[#1e293b] p-1 rounded-xl border border-slate-700/80">
             <button
@@ -873,7 +868,6 @@ export default function App() {
           {tab === "promo" && !isDeptLeader && (
             <PromoMatrixTab
               year={year}
-              onYearChange={handleYearChange}
               employees={filteredEmps}
               evalStore={evalStore}
             />
@@ -882,7 +876,6 @@ export default function App() {
           {tab === "snapshot_master" && isAdmin && (
             <EmployeeMasterTab
               year={year}
-              onYearChange={handleYearChange}
               employees={currentYearEmployees}
               onCellChange={handleSnapshotCellChange}
               onAddRow={handleAddRow}
