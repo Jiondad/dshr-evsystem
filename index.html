@@ -14,13 +14,15 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', sans-serif; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
   <div id="root"></div>
 
   <script>
@@ -36,10 +38,10 @@
     const DEPARTMENTS = ["관리팀", "영업팀", "생산관리팀", "생산팀"];
     const POSITIONS = ["사장", "부사장", "전무", "상무", "이사", "실장", "부장", "차장", "과장", "대리", "주임", "사원"];
 
-    const EXEC = { competency: 0, performance: 0.8, selfDev: 0.1, mentoring: 0.1 };
-    const SENIOR = { competency: 0.3, performance: 0.6, selfDev: 0.1, mentoring: 0 };
-    const MID = { competency: 0.6, performance: 0.4, selfDev: 0, mentoring: 0 };
-    const JUNIOR = { competency: 0.7, performance: 0.3, selfDev: 0, mentoring: 0 };
+    const EXEC = { competency: 0, performance: 0.8, selfDev: 0.1, mentoring: 0.1, label: "임원 (성과80/자기10/부하10)" };
+    const SENIOR = { competency: 0.3, performance: 0.6, selfDev: 0.1, mentoring: 0, label: "실·부·차장 (역량30/성과60/자기10)" };
+    const MID = { competency: 0.6, performance: 0.4, selfDev: 0, mentoring: 0, label: "과·대리 (역량60/성과40)" };
+    const JUNIOR = { competency: 0.7, performance: 0.3, selfDev: 0, mentoring: 0, label: "주·사원 (역량70/성과30)" };
 
     function weightsFor(position) {
       if (["사장", "부사장", "전무", "상무", "이사"].includes(position)) return EXEC;
@@ -59,42 +61,65 @@
     }
 
     const DEFAULT_EMPLOYEES = [
-      { emp_no: "10011", name: "김종현", dept: "관리팀", position: "실장", birth_date: "1975-02-06", hire_date: "2001-03-12", promo_date: "2024-01-01" },
-      { emp_no: "90005", name: "정승애", dept: "관리팀", position: "과장", birth_date: "1987-08-05", hire_date: "2009-08-06", promo_date: "2025-01-01" },
-      { emp_no: "100007", name: "염지원", dept: "관리팀", position: "과장", birth_date: "1981-08-03", hire_date: "2010-05-25", promo_date: "2025-01-01" },
-      { emp_no: "230003", name: "강현구", dept: "관리팀", position: "사원", birth_date: "1995-01-10", hire_date: "2023-10-01", promo_date: "2023-10-01" },
-      { emp_no: "10023", name: "이영숙", dept: "영업팀", position: "부장", birth_date: "1980-09-24", hire_date: "2001-08-20", promo_date: "2024-01-01" },
-      { emp_no: "130031", name: "유도근", dept: "영업팀", position: "부장", birth_date: "1980-11-16", hire_date: "2010-10-11", promo_date: "2024-01-01" },
-      { emp_no: "140017", name: "김영진", dept: "영업팀", position: "부장", birth_date: "1972-10-19", hire_date: "2014-09-01", promo_date: "2025-01-01" },
-      { emp_no: "90007", name: "우국진", dept: "영업팀", position: "차장", birth_date: "1983-09-21", hire_date: "2009-08-24", promo_date: "2022-01-01" },
-      { emp_no: "150019", name: "김영민", dept: "영업팀", position: "차장", birth_date: "1984-01-25", hire_date: "2007-12-01", promo_date: "2023-01-01" },
-      { emp_no: "220002", name: "박성진", dept: "영업팀", position: "과장", birth_date: "1983-12-11", hire_date: "2022-04-01", promo_date: "2022-04-01" },
-      { emp_no: "180003", name: "김영수", dept: "영업팀", position: "과장", birth_date: "1984-07-19", hire_date: "2018-04-16", promo_date: "2024-01-01" },
-      { emp_no: "160010", name: "배대호", dept: "영업팀", position: "과장", birth_date: "1982-01-05", hire_date: "2016-06-20", promo_date: "2025-01-01" },
-      { emp_no: "210006", name: "김상문", dept: "영업팀", position: "대리", birth_date: "1987-03-24", hire_date: "2021-08-01", promo_date: "2023-01-01" },
-      { emp_no: "180016", name: "윤종길", dept: "생산관리팀", position: "부장", birth_date: "1976-08-27", hire_date: "2018-09-17", promo_date: "2024-01-01" },
-      { emp_no: "150020", name: "김명수", dept: "생산관리팀", position: "차장", birth_date: "1982-12-08", hire_date: "2013-03-04", promo_date: "2023-01-01" },
-      { emp_no: "220005", name: "송병섭", dept: "생산관리팀", position: "대리", birth_date: "1994-06-21", hire_date: "2022-06-01", promo_date: "2024-01-01" },
-      { emp_no: "10022", name: "조원일", dept: "생산팀", position: "부장", birth_date: "1980-07-28", hire_date: "2001-08-16", promo_date: "2024-01-01" },
-      { emp_no: "80009", name: "서재천", dept: "생산팀", position: "차장", birth_date: "1982-02-12", hire_date: "2008-09-01", promo_date: "2023-01-01" },
-      { emp_no: "100010", name: "문정식", dept: "생산팀", position: "차장", birth_date: "1983-02-09", hire_date: "2010-09-01", promo_date: "2025-01-01" },
-      { emp_no: "110008", name: "정태현", dept: "생산팀", position: "과장", birth_date: "1981-06-15", hire_date: "2011-09-01", promo_date: "2024-01-01" },
-      { emp_no: "130005", name: "안상호", dept: "생산팀", position: "과장", birth_date: "1981-12-07", hire_date: "2013-03-01", promo_date: "2024-01-01" },
-      { emp_no: "150005", name: "송성민", dept: "생산팀", position: "과장", birth_date: "1985-05-24", hire_date: "2015-03-09", promo_date: "2024-01-01" },
-      { emp_no: "170001", name: "김동훈", dept: "생산팀", position: "과장", birth_date: "1985-08-15", hire_date: "2017-01-02", promo_date: "2024-01-01" },
-      { emp_no: "170014", name: "김영호", dept: "생산팀", position: "과장", birth_date: "1987-10-18", hire_date: "2017-08-01", promo_date: "2025-01-01" },
-      { emp_no: "180018", name: "문태환", dept: "생산팀", position: "과장", birth_date: "1987-03-04", hire_date: "2018-09-17", promo_date: "2025-01-01" },
-      { emp_no: "210004", name: "장민석", dept: "생산팀", position: "대리", birth_date: "1994-06-03", hire_date: "2021-06-01", promo_date: "2024-01-01" },
-      { emp_no: "230001", name: "김형진", dept: "생산팀", position: "주임", birth_date: "1994-07-28", hire_date: "2023-04-01", promo_date: "2025-01-01" },
-      { emp_no: "230005", name: "이현규", dept: "생산팀", position: "사원", birth_date: "1998-03-10", hire_date: "2023-12-01", promo_date: "2023-12-01" }
+      { emp_no: "DS-1001", name: "김종현", dept: "관리팀", position: "실장", birth_date: "1975-02-06", hire_date: "2001-03-12", promo_date: "2021-03-01" },
+      { emp_no: "DS-1002", name: "정승애", dept: "관리팀", position: "과장", birth_date: "1987-08-05", hire_date: "2009-08-06", promo_date: "2022-03-01" },
+      { emp_no: "DS-1003", name: "염지원", dept: "관리팀", position: "과장", birth_date: "1981-08-03", hire_date: "2010-05-25", promo_date: "2023-03-01" },
+      { emp_no: "DS-1004", name: "강현구", dept: "관리팀", position: "사원", birth_date: "1995-01-10", hire_date: "2023-10-01", promo_date: "2024-01-15" },
+      { emp_no: "DS-2001", name: "이영숙", dept: "영업팀", position: "부장", birth_date: "1980-09-24", hire_date: "2001-08-20", promo_date: "2020-03-01" },
+      { emp_no: "DS-2002", name: "유도근", dept: "영업팀", position: "부장", birth_date: "1980-11-16", hire_date: "2010-10-11", promo_date: "2021-03-01" },
+      { emp_no: "DS-2003", name: "김영진", dept: "영업팀", position: "부장", birth_date: "1972-10-19", hire_date: "2014-09-01", promo_date: "2021-09-01" },
+      { emp_no: "DS-2004", name: "우국진", dept: "영업팀", position: "차장", birth_date: "1983-09-21", hire_date: "2009-08-24", promo_date: "2022-03-01" },
+      { emp_no: "DS-2005", name: "김영민", dept: "영업팀", position: "차장", birth_date: "1984-01-25", hire_date: "2007-12-01", promo_date: "2022-09-01" },
+      { emp_no: "DS-2006", name: "박성진", dept: "영업팀", position: "과장", birth_date: "1983-12-11", hire_date: "2022-04-01", promo_date: "2022-03-01" },
+      { emp_no: "DS-2007", name: "김영수", dept: "영업팀", position: "과장", birth_date: "1984-07-19", hire_date: "2018-04-16", promo_date: "2024-01-01" },
+      { emp_no: "DS-2008", name: "배대호", dept: "영업팀", position: "과장", birth_date: "1982-01-05", hire_date: "2016-06-20", promo_date: "2025-01-01" },
+      { emp_no: "DS-2009", name: "김상문", dept: "영업팀", position: "대리", birth_date: "1987-03-24", hire_date: "2021-08-01", promo_date: "2023-01-01" },
+      { emp_no: "DS-3001", name: "윤종길", dept: "생산관리팀", position: "부장", birth_date: "1976-08-27", hire_date: "2018-09-17", promo_date: "2024-01-01" },
+      { emp_no: "DS-3002", name: "김명수", dept: "생산관리팀", position: "차장", birth_date: "1982-12-08", hire_date: "2013-03-04", promo_date: "2023-01-01" },
+      { emp_no: "DS-3003", name: "송병섭", dept: "생산관리팀", position: "대리", birth_date: "1994-06-21", hire_date: "2022-06-01", promo_date: "2024-01-01" },
+      { emp_no: "DS-4001", name: "조원일", dept: "생산팀", position: "부장", birth_date: "1980-07-28", hire_date: "2001-08-16", promo_date: "2024-01-01" },
+      { emp_no: "DS-4002", name: "서재천", dept: "생산팀", position: "차장", birth_date: "1982-02-12", hire_date: "2008-09-01", promo_date: "2023-01-01" },
+      { emp_no: "DS-4003", name: "문정식", dept: "생산팀", position: "차장", birth_date: "1983-02-09", hire_date: "2010-09-01", promo_date: "2025-01-01" },
+      { emp_no: "DS-4004", name: "정태현", dept: "생산팀", position: "과장", birth_date: "1981-06-15", hire_date: "2011-09-01", promo_date: "2024-01-01" },
+      { emp_no: "DS-4005", name: "안상호", dept: "생산팀", position: "과장", birth_date: "1981-12-07", hire_date: "2013-03-01", promo_date: "2024-01-01" },
+      { emp_no: "DS-4006", name: "송성민", dept: "생산팀", position: "과장", birth_date: "1985-05-24", hire_date: "2015-03-09", promo_date: "2024-01-01" },
+      { emp_no: "DS-4007", name: "김동훈", dept: "생산팀", position: "과장", birth_date: "1985-08-15", hire_date: "2017-01-02", promo_date: "2024-01-01" },
+      { emp_no: "DS-4008", name: "김영호", dept: "생산팀", position: "과장", birth_date: "1987-10-18", hire_date: "2017-08-01", promo_date: "2025-01-01" },
+      { emp_no: "DS-4009", name: "문태환", dept: "생산팀", position: "과장", birth_date: "1987-03-04", hire_date: "2018-09-17", promo_date: "2025-01-01" },
+      { emp_no: "DS-4010", name: "장민석", dept: "생산팀", position: "대리", birth_date: "1994-06-03", hire_date: "2021-06-01", promo_date: "2024-01-01" },
+      { emp_no: "DS-4011", name: "김형진", dept: "생산팀", position: "주임", birth_date: "1994-07-28", hire_date: "2023-04-01", promo_date: "2025-01-01" },
+      { emp_no: "DS-4012", name: "이현규", dept: "생산팀", position: "사원", birth_date: "1998-03-10", hire_date: "2023-12-01", promo_date: "2023-12-01" }
     ];
 
-    const gradeColor = {
-      S: "bg-blue-600 text-white",
-      A: "bg-emerald-600 text-white",
-      B: "bg-indigo-500 text-white",
-      C: "bg-amber-500 text-white",
-      D: "bg-rose-500 text-white",
+    const DEFAULT_SEED_2025 = {
+      "DS-1001": { competency: 92, performance: 95, selfDev: 90, mentoring: "", adjust: 2, adjustReason: "전사 ERP 고도화 및 내부통", grade: "S", note: "핵심 관리역량 최우수 / 경영지원 총괄" },
+      "DS-1002": { competency: 88, performance: 90, selfDev: "", mentoring: "", adjust: 1, adjustReason: "결산 자동화 프로세스 단축", grade: "A", note: "회계·세무 실무 핵심 인재" },
+      "DS-1003": { competency: 82, performance: 84, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "노무 및 총무 안정적 운영" },
+      "DS-1004": { competency: 79, performance: 80, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "신규 입사 후 빠른 업무 적응" },
+      "DS-2001": { competency: 93, performance: 93, selfDev: 88, mentoring: "", adjust: 1.5, adjustReason: "신규 대형 철강 고객사 3곳", grade: "A", note: "영업1파트 매출 목표 110% 달성" },
+      "DS-2002": { competency: 84, performance: 85, selfDev: 82, mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "기존 거래처 여신관리 양호" },
+      "DS-2003": { competency: 81, performance: 83, selfDev: 80, mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "내수 유통망 안정적 유지" },
+      "DS-2004": { competency: 89, performance: 91, selfDev: 86, mentoring: "", adjust: 1, adjustReason: "자동차 부품향 특수강 매출", grade: "A", note: "차기 부장 승진 핵심 후보" },
+      "DS-2005": { competency: 80, performance: 82, selfDev: 79, mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "영남권 거점 거래처 관리" },
+      "DS-2006": { competency: 83, performance: 85, selfDev: "", mentoring: "", adjust: 0.5, adjustReason: "미수채권 조기 회수 기여", grade: "B", note: "채권리스크 관리 우수" },
+      "DS-2007": { competency: 78, performance: 79, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "수주 납기 대응 준수" },
+      "DS-2008": { competency: 71, performance: 68, selfDev: "", mentoring: "", adjust: -1, adjustReason: "분반기 매출 목표 미달성", grade: "C", note: "신규 거래선 발굴 독려 필요" },
+      "DS-2009": { competency: 82, performance: 81, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "영업지원 및 견적 응대 우수" },
+      "DS-3001": { competency: 85, performance: 86, selfDev: 84, mentoring: "", adjust: 0.5, adjustReason: "원자재 재고 회전율 12% 개", grade: "B", note: "수급 계획 총괄 안정적 수행" },
+      "DS-3002": { competency: 88, performance: 90, selfDev: 87, mentoring: "", adjust: 1, adjustReason: "코일 슬리팅 공정 리드타임", grade: "A", note: "생산계획 최적화 우수" },
+      "DS-3003": { competency: 80, performance: 82, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "출하 배차 및 납기율 관리 양호" },
+      "DS-4001": { competency: 84, performance: 86, selfDev: 82, mentoring: "", adjust: 0.5, adjustReason: "무재해 사업장 안전보건 목", grade: "B", note: "현장 안전 및 설비 총괄" },
+      "DS-4002": { competency: 82, performance: 84, selfDev: 80, mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "1공장 라인 가동률 안정 유지" },
+      "DS-4003": { competency: 79, performance: 81, selfDev: 78, mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "2공장 설비 예방보전 수행" },
+      "DS-4004": { competency: 78, performance: 80, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "절단 정밀도 개선 기여" },
+      "DS-4005": { competency: 80, performance: 82, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "야간 교대조 현장 리딩" },
+      "DS-4006": { competency: 81, performance: 83, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "후판 가공 불량률 저감" },
+      "DS-4007": { competency: 79, performance: 80, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "현장 5S 환경개선 주도" },
+      "DS-4008": { competency: 78, performance: 79, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "설비 트러블 조기 조치" },
+      "DS-4009": { competency: 77, performance: 78, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "신입 오퍼레이터 직무 교육" },
+      "DS-4010": { competency: 81, performance: 82, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "B", note: "자동 결속기 운용 숙련" },
+      "DS-4011": { competency: 72, performance: 70, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "C", note: "기본 작업수칙 숙지 지도" },
+      "DS-4012": { competency: 68, performance: 65, selfDev: "", mentoring: "", adjust: 0, adjustReason: "", grade: "D", note: "근태 관리 및 직무 교육 집중 요망" }
     };
 
     function App() {
@@ -105,6 +130,7 @@
       const [supabaseClient, setSupabaseClient] = useState(null);
       const [isConfigOpen, setIsConfigOpen] = useState(false);
       const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+      const [isWeightGuideOpen, setIsWeightGuideOpen] = useState(false);
       const [editingEmp, setEditingEmp] = useState(null);
 
       const [year, setYear] = useState(2025);
@@ -113,13 +139,16 @@
       const [searchQuery, setSearchQuery] = useState("");
 
       const [employees, setEmployees] = useState(() => {
-        const saved = localStorage.getItem("ds_emp_master_v1");
+        const saved = localStorage.getItem("ds_emp_master_v2");
         return saved ? JSON.parse(saved) : DEFAULT_EMPLOYEES;
       });
 
       const [evalStore, setEvalStore] = useState(() => {
-        const saved = localStorage.getItem("ds_eval_store_v1");
-        return saved ? JSON.parse(saved) : {};
+        const saved = localStorage.getItem("ds_eval_store_v2");
+        if (saved) {
+          try { return JSON.parse(saved); } catch(e){}
+        }
+        return { 2025: DEFAULT_SEED_2025 };
       });
 
       useEffect(() => {
@@ -136,7 +165,7 @@
         supabaseClient.from("employees").select("*").eq("is_active", true).order("emp_no").then(({ data, error }) => {
           if (!error && data && data.length > 0) {
             setEmployees(data);
-            localStorage.setItem("ds_emp_master_v1", JSON.stringify(data));
+            localStorage.setItem("ds_emp_master_v2", JSON.stringify(data));
           } else if (data && data.length === 0) {
             supabaseClient.from("employees").upsert(DEFAULT_EMPLOYEES).then(() => {});
           }
@@ -163,11 +192,11 @@
       }, [supabaseClient, year]);
 
       useEffect(() => {
-        localStorage.setItem("ds_emp_master_v1", JSON.stringify(employees));
+        localStorage.setItem("ds_emp_master_v2", JSON.stringify(employees));
       }, [employees]);
 
       useEffect(() => {
-        localStorage.setItem("ds_eval_store_v1", JSON.stringify(evalStore));
+        localStorage.setItem("ds_eval_store_v2", JSON.stringify(evalStore));
       }, [evalStore]);
 
       const filteredEmps = useMemo(() => {
@@ -231,7 +260,30 @@
         if (error) {
           alert("저장 실패: " + error.message);
         } else {
-          alert("Supabase에 " + records.length + "명의 데이터가 저장되었습니다.");
+          alert("Supabase에 " + records.length + "명의 데이터가 성공적으로 저장되었습니다.");
+        }
+      };
+
+      const handleExportCSV = () => {
+        let csv = "\uFEFF사번,성명,부서,직위,역량,성과,자기계발,부하육성,가감점,가감사유,최종환산점수,최종등급,승진포인트,특이사항\n";
+        filteredEmps.forEach(e => {
+          const ev = currentYearEvals[e.emp_no] || {};
+          const fScore = finalScore(e.position, ev);
+          const pts = pointsFor(ev.grade);
+          csv += `"${e.emp_no}","${e.name}","${e.dept}","${e.position}","${ev.competency||''}","${ev.performance||''}","${ev.selfDev||''}","${ev.mentoring||''}","${ev.adjust||''}","${ev.adjustReason||''}","${fScore}","${ev.grade||''}","${pts}","${ev.note||''}"\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `대성스틸_${year}년_인사평가결과_${dept}.csv`;
+        link.click();
+      };
+
+      const handleResetData = () => {
+        if (confirm("현재 화면의 평가 데이터를 초기 기본값으로 리셋하시겠습니까?")) {
+          setEvalStore({ 2025: DEFAULT_SEED_2025 });
+          localStorage.removeItem("ds_eval_store_v2");
+          alert("데이터가 기본값으로 초기화되었습니다.");
         }
       };
 
@@ -252,89 +304,147 @@
         setEditingEmp(null);
       };
 
-      return h("div", { className: "max-w-[1550px] mx-auto p-6 space-y-6" },
-        // 헤더
-        h("header", { className: "bg-slate-900 text-white rounded-xl p-4 shadow-md flex flex-wrap justify-between items-center gap-4" },
-          h("div", { className: "flex items-center gap-3" },
-            h("span", { className: "p-2 rounded bg-blue-600 text-white font-bold" }, h("i", { className: "fa-solid fa-users-gear" })),
+      // ==========================================
+      // 정밀 엔터프라이즈 스타일 UI 렌더링
+      // ==========================================
+      return h("div", { className: "max-w-[1600px] mx-auto p-6 space-y-5" },
+
+        // 1. 메인 헤더 바 (다크 블루 톤 & 고급스러운 탭 버튼)
+        h("header", { className: "bg-[#0b192c] text-white rounded-2xl p-4 shadow-xl flex flex-wrap justify-between items-center gap-4 border border-slate-800" },
+          h("div", { className: "flex items-center gap-3.5" },
+            h("div", { className: "w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30" },
+              h("i", { className: "fa-solid fa-chart-line text-lg" })
+            ),
             h("div", null,
-              h("h1", { className: "text-lg font-bold tracking-tight" }, "대성스틸 인사평가 및 승진심사 관리시스템"),
-              h("p", { className: "text-xs text-slate-400" }, "대표이사 최종 원점수 환산 및 그룹 평가 기준율 검증")
+              h("h1", { className: "text-lg font-extrabold tracking-tight text-white flex items-center gap-2" },
+                "대성스틸 인사평가 및 승진심사 관리시스템"
+              ),
+              h("p", { className: "text-xs text-slate-400 mt-0.5" }, "대표이사 최종 결정 원점수 기반 직급별 가중치 자동 환산 · 3개년 승진심사 누적 포인트 연동")
             )
           ),
-          h("div", { className: "flex items-center gap-2" },
-            h("div", { className: "flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700" },
-              h("button", { onClick: () => setYear(y => y - 1), className: "px-2 py-1 text-slate-400 hover:text-white" }, "<"),
-              h("span", { className: "px-3 py-1 font-bold text-sm text-amber-400" }, year + "년 귀속"),
-              h("button", { onClick: () => setYear(y => y + 1), className: "px-2 py-1 text-slate-400 hover:text-white" }, ">")
+
+          h("div", { className: "flex items-center gap-3" },
+            // 연도 선택기
+            h("div", { className: "flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner" },
+              h("button", { onClick: () => setYear(y => y - 1), className: "w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition" }, "<"),
+              h("span", { className: "px-3 py-1 font-bold text-xs tracking-wider text-amber-400 flex items-center gap-1.5" },
+                h("i", { className: "fa-regular fa-calendar-check" }),
+                year + "년 귀속"
+              ),
+              h("button", { onClick: () => setYear(y => y + 1), className: "w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition" }, ">")
             ),
-            h("div", { className: "flex bg-slate-800 p-1 rounded-lg" },
+
+            // 상단 탭 전환
+            h("div", { className: "flex bg-[#1e293b] p-1 rounded-xl border border-slate-700/80" },
               h("button", {
                 onClick: () => setTab("input"),
-                className: "px-3 py-1.5 text-xs font-bold rounded " + (tab === 'input' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')
-              }, "평가 결과 입력"),
+                className: "px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 " + (tab === 'input' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200')
+              }, h("i", { className: "fa-solid fa-pen-to-square text-[11px]" }), "평가 결과 입력"),
               h("button", {
                 onClick: () => setTab("promo"),
-                className: "px-3 py-1.5 text-xs font-bold rounded " + (tab === 'promo' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')
-              }, "다년도 승진심사 매트릭스")
+                className: "px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 " + (tab === 'promo' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200')
+              }, h("i", { className: "fa-solid fa-table-cells text-[11px]" }), "다년도 승진심사 매트릭스")
             ),
+
+            // 사원 마스터 버튼
             h("button", {
               onClick: () => { setEditingEmp(null); setIsEmpModalOpen(true); },
-              className: "px-3 py-1.5 text-xs font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
-            }, h("i", { className: "fa-solid fa-user-plus" }), " 사원 마스터 관리"),
+              className: "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md transition"
+            }, h("i", { className: "fa-solid fa-user-plus text-[11px]" }), "사원 마스터 관리"),
+
+            // Supabase 연동 상태 버튼
             h("button", {
               onClick: () => setIsConfigOpen(true),
-              className: "px-3 py-1.5 text-xs font-bold rounded flex items-center gap-1.5 " + (supabaseClient ? "bg-slate-800 text-emerald-400 border border-emerald-500/50" : "bg-amber-600 text-white")
-            }, h("i", { className: "fa-solid fa-database" }), supabaseClient ? "Supabase 연동됨" : "Supabase 설정")
+              className: "px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition border " + (supabaseClient ? "bg-slate-800 text-emerald-400 border-emerald-500/40 shadow-sm" : "bg-amber-600 hover:bg-amber-500 text-white border-transparent")
+            }, h("i", { className: "fa-solid fa-database text-[11px]" }), supabaseClient ? "Supabase 연결됨" : "Supabase 설정")
           )
         ),
 
-        // 컨트롤 바
-        h("div", { className: "bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3" },
-          h("div", { className: "flex flex-wrap items-center gap-2" },
-            h("span", { className: "text-xs font-bold text-slate-500 mr-1" }, "부서 필터:"),
+        // 2. 부서 필터 & 유틸리티 바
+        h("div", { className: "bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3" },
+          h("div", { className: "flex flex-wrap items-center gap-1.5" },
+            h("span", { className: "text-xs font-bold text-slate-400 mr-2 flex items-center gap-1" },
+              h("i", { className: "fa-solid fa-users text-[11px]" }), "부서 필터"
+            ),
             h("button", {
               onClick: () => setDept("전체"),
-              className: "px-3 py-1 text-xs font-bold rounded-lg transition " + (dept === '전체' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
-            }, "전체부서 (" + employees.length + ")"),
+              className: "px-3.5 py-1.5 text-xs font-bold rounded-xl transition " + (dept === '전체' ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+            }, "전체 부서 (" + employees.length + ")"),
             DEPARTMENTS.map(d => {
               const count = employees.filter(e => e.dept === d).length;
               return h("button", {
                 key: d,
                 onClick: () => setDept(d),
-                className: "px-3 py-1 text-xs font-bold rounded-lg transition " + (dept === d ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+                className: "px-3.5 py-1.5 text-xs font-bold rounded-xl transition " + (dept === d ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
               }, d + " (" + count + ")");
             })
           ),
-          h("div", { className: "flex items-center gap-3" },
+
+          h("div", { className: "flex items-center gap-2" },
+            // 검색창
             h("div", { className: "relative" },
+              h("i", { className: "fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs" }),
               h("input", {
                 type: "text",
-                placeholder: "성명, 사번, 직위 검색...",
+                placeholder: "사번, 성명, 직위 검색...",
                 value: searchQuery,
                 onChange: e => setSearchQuery(e.target.value),
-                className: "pl-3 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-52 focus:outline-blue-500"
+                className: "pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl w-52 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition"
               })
             ),
+
+            // 가중치 기준표 팝업 버튼
+            h("button", {
+              onClick: () => setIsWeightGuideOpen(true),
+              className: "px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 border border-slate-200/80 transition"
+            }, h("i", { className: "fa-solid fa-scale-balanced text-[11px]" }), "직급별 가중치 산출기준표"),
+
+            // 저장 버튼
             h("button", {
               onClick: handleSaveAll,
-              className: "px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm"
-            }, h("i", { className: "fa-solid fa-cloud-arrow-up" }), " 평가데이터 저장 (Upsert)")
+              className: "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm transition"
+            }, h("i", { className: "fa-solid fa-cloud-arrow-up text-[11px]" }), "평가데이터 저장"),
+
+            // CSV 내보내기 버튼
+            h("button", {
+              onClick: handleExportCSV,
+              className: "px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 transition"
+            }, h("i", { className: "fa-solid fa-file-excel text-[11px]" }), "CSV 내보내기"),
+
+            // 초기화 버튼
+            h("button", {
+              onClick: handleResetData,
+              className: "px-2.5 py-1.5 text-xs font-bold rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            }, h("i", { className: "fa-solid fa-rotate-left" }))
           )
         ),
 
-        // 등급 통계 카드
-        h("div", { className: "grid grid-cols-2 md:grid-cols-6 gap-3" },
-          h("div", { className: "bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between" },
-            h("span", { className: "text-xs font-semibold text-slate-400" }, "전체 부서 평가 대상"),
-            h("div", { className: "my-2" },
-              h("span", { className: "text-3xl font-black text-slate-800" }, totalCount),
-              h("span", { className: "text-sm font-semibold text-slate-500 ml-1" }, "명")
+        // 3. 상단 대시보드 (총 대상 다크 카드 + 등급별 기준율 게이지 카드)
+        h("div", { className: "grid grid-cols-2 md:grid-cols-6 gap-3.5" },
+          // 총 대상 인원 다크 카드
+          h("div", { className: "bg-[#0b192c] text-white rounded-2xl p-4 shadow-sm flex flex-col justify-between border border-slate-800" },
+            h("div", { className: "flex justify-between items-start" },
+              h("span", { className: "text-[11px] font-semibold text-slate-400" }, "총대상 및 배분현황"),
+              h("span", { className: "text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300" }, year + "년 · " + dept)
             ),
-            h("div", { className: "text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded" },
-              "배분 완료: ", h("b", { className: "text-blue-600" }, gradedTotal + "명"), " (" + getPct(gradedTotal) + "%)"
+            h("div", { className: "my-2" },
+              h("span", { className: "text-2xl font-black text-white tracking-tight" }, gradedTotal),
+              h("span", { className: "text-sm text-slate-400 font-semibold mx-1" }, "/"),
+              h("span", { className: "text-lg text-slate-400 font-bold" }, totalCount),
+              h("span", { className: "text-xs text-slate-400 ml-1" }, "명")
+            ),
+            h("div", null,
+              h("div", { className: "flex justify-between text-[11px] text-slate-400 mb-1" },
+                h("span", null, "배분율(%)"),
+                h("span", { className: "font-bold text-blue-400" }, getPct(gradedTotal) + "%")
+              ),
+              h("div", { className: "w-full h-1.5 bg-slate-800 rounded-full overflow-hidden" },
+                h("div", { className: "h-full bg-blue-500 rounded-full transition-all duration-300", style: { width: Math.min(getPct(gradedTotal), 100) + "%" } })
+              )
             )
           ),
+
+          // S, A, B, C, D 등급 카드
           GRADES.map(grade => {
             const targetRate = GRADE_TARGET_RATE[grade];
             const recCount = recommendedCount(totalCount, grade);
@@ -344,53 +454,80 @@
 
             return h("div", {
               key: grade,
-              className: "bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between transition " + (isOver && curCount > 0 ? "border-amber-400 bg-amber-50/20" : "border-slate-200")
+              className: "bg-white border rounded-2xl p-4 shadow-sm flex flex-col justify-between transition-all hover:shadow-md " + (isOver && curCount > 0 ? "border-amber-400 bg-amber-50/20" : "border-slate-200/80")
             },
               h("div", { className: "flex justify-between items-center" },
-                h("span", { className: "font-extrabold text-sm text-slate-700 flex items-center gap-1.5" },
-                  h("span", { className: "w-5 h-5 rounded flex items-center justify-center text-xs " + gradeColor[grade] }, grade),
-                  grade + "등급"
+                h("div", { className: "flex items-center gap-1.5" },
+                  h("span", { className: "font-black text-sm text-slate-800" }, grade + "등급"),
+                  h("span", { className: "text-[10px] text-slate-400 font-medium" }, "기준 " + targetRate + "%")
                 ),
-                h("span", { className: "text-xs text-slate-400 font-medium" }, "기준 " + targetRate + "%")
-              ),
-              h("div", { className: "my-2 flex items-baseline gap-2" },
-                h("span", { className: "text-2xl font-black text-slate-800" }, curCount + "명"),
-                h("span", { className: "text-xs font-bold text-slate-500" }, "(" + curRate + "%)")
-              ),
-              h("div", { className: "flex justify-between items-center text-xs pt-2 border-t border-slate-100" },
-                h("span", { className: "text-slate-400" }, "권장: ", h("b", { className: "text-slate-700" }, recCount + "명")),
                 h("span", {
-                  className: "px-1.5 py-0.5 rounded text-[10px] font-bold " + (isOver && curCount > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")
-                }, isOver && curCount > 0 ? "초과주의" : "적정")
+                  className: "px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 " + (isOver && curCount > 0 ? "bg-amber-100 text-amber-800" : "bg-emerald-50 text-emerald-700 border border-emerald-200/60")
+                },
+                  h("i", { className: "fa-solid " + (isOver && curCount > 0 ? "fa-triangle-exclamation" : "fa-check") }),
+                  isOver && curCount > 0 ? "초과주의" : "적정"
+                )
+              ),
+
+              h("div", { className: "my-2" },
+                h("div", { className: "flex items-baseline gap-1.5" },
+                  h("span", { className: "text-2xl font-black text-slate-900 tracking-tight" }, curCount + "명"),
+                  h("span", { className: "text-xs font-bold text-slate-500" }, "(" + curRate + "%)")
+                ),
+                // 프로그레스 바 & 기준 마커
+                h("div", { className: "relative mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden" },
+                  h("div", {
+                    className: "h-full rounded-full transition-all duration-300 " + (isOver ? "bg-amber-500" : "bg-blue-600"),
+                    style: { width: Math.min(curRate, 100) + "%" }
+                  })
+                )
+              ),
+
+              h("div", { className: "text-[11px] text-slate-400 pt-2 border-t border-slate-100 flex justify-between items-center" },
+                h("span", null, "권장: ", h("b", { className: "text-slate-700" }, recCount + "명")),
+                h("span", { className: "text-[10px] text-slate-400" }, "(반올림 " + Math.round(parseFloat(recCount)) + "명)")
               )
             );
           })
         ),
 
-        // 평가 테이블 또는 승진 매트릭스
+        // 4. 메인 콘텐츠 (테이블 영역)
         tab === "input" ? (
-          h("div", { className: "bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" },
-            h("div", { className: "px-5 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center" },
-              h("span", { className: "text-xs font-bold text-slate-700" },
-                h("i", { className: "fa-solid fa-list-check mr-1.5 text-blue-600" }),
-                year + "년도 인사평가 결과 입력 (" + dept + " · " + filteredEmps.length + "명)"
+          h("div", { className: "bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden" },
+            // 테이블 안내 바
+            h("div", { className: "px-5 py-3.5 border-b border-slate-200/80 bg-slate-50/70 flex justify-between items-center" },
+              h("div", null,
+                h("span", { className: "text-xs font-bold text-slate-800" },
+                  year + "년 인사평가 결과 입력 (" + dept + " · " + filteredEmps.length + "명)"
+                ),
+                h("p", { className: "text-[11px] text-slate-400 mt-0.5" },
+                  "대표이사 최종 결정 원점수를 입력하면 직급별 가중치가 자동 반영되어 소수점 첫째 자리의 최종 환산점수와 승진 포인트가 산출됩니다."
+                )
               ),
-              h("span", { className: "text-xs text-slate-500" }, "* 사원 성명을 클릭하면 직위, 부서, 승진일자를 수정할 수 있습니다.")
+              h("div", { className: "flex items-center gap-3 text-xs text-slate-500 font-semibold" },
+                h("span", null, "S등급: ", h("b", { className: "text-blue-600" }, "10점")),
+                h("span", null, "A등급: ", h("b", { className: "text-emerald-600" }, "8점")),
+                h("span", null, "B등급: ", h("b", { className: "text-indigo-600" }, "6점")),
+                h("span", null, "C등급: ", h("b", { className: "text-amber-600" }, "4점")),
+                h("span", null, "D등급: ", h("b", { className: "text-rose-600" }, "2점"))
+              )
             ),
+
+            // 평가 입력 테이블
             h("div", { className: "overflow-x-auto" },
               h("table", { className: "w-full text-left text-xs border-collapse" },
-                h("thead", { className: "bg-slate-100 text-slate-600 font-semibold border-b border-slate-200" },
+                h("thead", { className: "bg-slate-100/80 text-slate-600 font-bold border-b border-slate-200/80" },
                   h("tr", null,
-                    h("th", { className: "p-3 text-center w-14" }, "사번"),
+                    h("th", { className: "p-3 text-center w-16" }, "사번"),
                     h("th", { className: "p-3 w-20" }, "성명"),
                     h("th", { className: "p-3 w-24" }, "부서"),
-                    h("th", { className: "p-3 w-16" }, "직위"),
-                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "역량"),
-                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "성과"),
-                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "자기계발"),
-                    h("th", { className: "p-3 text-center w-20 bg-blue-50/50" }, "부하육성"),
-                    h("th", { className: "p-3 text-center w-24" }, "가감점/사유"),
-                    h("th", { className: "p-3 text-center w-24 bg-slate-200/60 font-bold text-slate-800" }, "최종 환산점수"),
+                    h("th", { className: "p-3 w-28" }, "직위"),
+                    h("th", { className: "p-2.5 text-center w-20 bg-blue-50/40" }, "역량"),
+                    h("th", { className: "p-2.5 text-center w-20 bg-blue-50/40" }, "성과"),
+                    h("th", { className: "p-2.5 text-center w-20 bg-blue-50/40" }, "자기계발"),
+                    h("th", { className: "p-2.5 text-center w-20 bg-blue-50/40" }, "부하육성"),
+                    h("th", { className: "p-2.5 text-center w-36" }, "가감점 / 사유"),
+                    h("th", { className: "p-3 text-center w-24 bg-slate-200/70 font-black text-slate-800" }, "최종 환산점수"),
                     h("th", { className: "p-3 text-center w-24" }, "최종 등급"),
                     h("th", { className: "p-3 text-center w-20" }, "승진 포인트"),
                     h("th", { className: "p-3" }, "특이사항")
@@ -403,99 +540,99 @@
                     const fScore = finalScore(emp.position, ev);
                     const points = pointsFor(ev.grade);
 
-                    return h("tr", { key: emp.emp_no, className: "hover:bg-blue-50/30 transition" },
-                      h("td", { className: "p-2.5 text-center font-mono text-slate-400" }, emp.emp_no),
+                    return h("tr", { key: emp.emp_no, className: "hover:bg-blue-50/20 transition-colors" },
+                      h("td", { className: "p-2.5 text-center font-mono text-slate-400 text-[11px]" }, emp.emp_no),
                       h("td", { className: "p-2.5" },
                         h("button", {
                           onClick: () => { setEditingEmp(emp); setIsEmpModalOpen(true); },
-                          className: "font-bold text-blue-600 hover:underline flex items-center gap-1"
-                        }, emp.name, h("i", { className: "fa-solid fa-pen text-[10px] text-slate-300" }))
+                          className: "font-bold text-slate-800 hover:text-blue-600 flex items-center gap-1 group"
+                        },
+                          emp.name,
+                          h("i", { className: "fa-solid fa-pen-to-square text-[10px] text-slate-300 group-hover:text-blue-500 transition" })
+                        )
                       ),
-                      h("td", { className: "p-2.5 text-slate-600" }, emp.dept),
-                      h("td", { className: "p-2.5 font-semibold text-slate-700" }, emp.position),
+                      h("td", { className: "p-2.5 text-slate-600 font-medium" }, emp.dept),
+                      h("td", { className: "p-2.5" },
+                        h("div", { className: "font-semibold text-slate-700" }, emp.position),
+                        h("div", { className: "text-[10px] text-slate-400 font-mono" },
+                          "(" + (w.competency*100) + "/" + (w.performance*100) + "/" + (w.selfDev*100) + "/" + (w.mentoring*100) + ")"
+                        )
+                      ),
 
                       // 역량
                       h("td", { className: "p-2 text-center bg-blue-50/20" },
-                        w.competency > 0 ? h("div", null,
-                          h("input", {
-                            type: "number", step: "0.5", value: ev.competency,
-                            onChange: e => handleCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value)),
-                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                          }),
-                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.competency * 100) + "%")
-                        ) : h("span", { className: "text-slate-300" }, "-")
+                        w.competency > 0 ? h("input", {
+                          type: "number", step: "0.5", value: ev.competency,
+                          onChange: e => handleCellChange(emp.emp_no, 'competency', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                          className: "w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        }) : h("span", { className: "text-slate-300 font-bold" }, "-")
                       ),
 
                       // 성과
                       h("td", { className: "p-2 text-center bg-blue-50/20" },
-                        w.performance > 0 ? h("div", null,
-                          h("input", {
-                            type: "number", step: "0.5", value: ev.performance,
-                            onChange: e => handleCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value)),
-                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                          }),
-                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.performance * 100) + "%")
-                        ) : h("span", { className: "text-slate-300" }, "-")
+                        w.performance > 0 ? h("input", {
+                          type: "number", step: "0.5", value: ev.performance,
+                          onChange: e => handleCellChange(emp.emp_no, 'performance', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                          className: "w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        }) : h("span", { className: "text-slate-300 font-bold" }, "-")
                       ),
 
                       // 자기계발
                       h("td", { className: "p-2 text-center bg-blue-50/20" },
-                        w.selfDev > 0 ? h("div", null,
-                          h("input", {
-                            type: "number", step: "0.5", value: ev.selfDev,
-                            onChange: e => handleCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value)),
-                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                          }),
-                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.selfDev * 100) + "%")
-                        ) : h("span", { className: "text-slate-300" }, "-")
+                        w.selfDev > 0 ? h("input", {
+                          type: "number", step: "0.5", value: ev.selfDev,
+                          onChange: e => handleCellChange(emp.emp_no, 'selfDev', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                          className: "w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        }) : h("span", { className: "text-slate-300 font-bold" }, "-")
                       ),
 
                       // 부하육성
                       h("td", { className: "p-2 text-center bg-blue-50/20" },
-                        w.mentoring > 0 ? h("div", null,
-                          h("input", {
-                            type: "number", step: "0.5", value: ev.mentoring,
-                            onChange: e => handleCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value)),
-                            className: "w-16 border rounded px-1.5 py-1 text-center font-semibold bg-white focus:outline-blue-500"
-                          }),
-                          h("div", { className: "text-[10px] text-slate-400 mt-0.5" }, (w.mentoring * 100) + "%")
-                        ) : h("span", { className: "text-slate-300" }, "-")
+                        w.mentoring > 0 ? h("input", {
+                          type: "number", step: "0.5", value: ev.mentoring,
+                          onChange: e => handleCellChange(emp.emp_no, 'mentoring', e.target.value === "" ? "" : parseFloat(e.target.value)),
+                          className: "w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        }) : h("span", { className: "text-slate-300 font-bold" }, "-")
                       ),
 
-                      // 가감점
+                      // 가감점 & 사유
                       h("td", { className: "p-2 text-center" },
-                        h("div", { className: "flex items-center gap-1 justify-center" },
+                        h("div", { className: "flex items-center gap-1.5 justify-center" },
                           h("input", {
-                            type: "number", placeholder: "±", value: ev.adjust,
+                            type: "number", step: "0.5", placeholder: "±", value: ev.adjust,
                             onChange: e => handleCellChange(emp.emp_no, 'adjust', e.target.value === "" ? "" : parseFloat(e.target.value)),
-                            className: "w-12 border rounded px-1 py-1 text-center font-medium bg-white focus:outline-blue-500 text-xs"
+                            className: "w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-center font-bold bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs shadow-sm"
                           }),
                           h("input", {
-                            type: "text", placeholder: "사유", value: ev.adjustReason,
+                            type: "text", placeholder: "사유입력", value: ev.adjustReason,
                             onChange: e => handleCellChange(emp.emp_no, 'adjustReason', e.target.value),
-                            className: "w-20 border rounded px-1 py-1 text-xs bg-white focus:outline-blue-500"
+                            className: "w-24 border border-slate-200 rounded-lg px-2 py-1 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                           })
                         )
                       ),
 
                       // 최종 점수
-                      h("td", { className: "p-2.5 text-center font-black text-blue-700 bg-slate-100/70 text-sm" }, fScore.toFixed(1)),
+                      h("td", { className: "p-2.5 text-center font-black text-blue-700 bg-slate-100/60 text-sm tracking-tight" },
+                        fScore.toFixed(1)
+                      ),
 
                       // 최종 등급
                       h("td", { className: "p-2 text-center" },
                         h("select", {
                           value: ev.grade,
                           onChange: e => handleCellChange(emp.emp_no, 'grade', e.target.value),
-                          className: "border border-slate-300 rounded px-2 py-1 font-bold bg-white text-slate-800 shadow-sm focus:outline-blue-500"
+                          className: "border border-slate-300 rounded-lg px-2 py-1 font-extrabold bg-white text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         },
                           h("option", { value: "" }, "-"),
-                          GRADES.map(g => h("option", { key: g, value: g }, g))
+                          GRADES.map(g => h("option", { key: g, value: g }, g + "등급"))
                         )
                       ),
 
                       // 승진 포인트
                       h("td", { className: "p-2.5 text-center" },
-                        h("span", { className: "px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800" }, "+" + points + "P")
+                        h("span", { className: "px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/60" },
+                          points + "점"
+                        )
                       ),
 
                       // 특이사항
@@ -503,7 +640,7 @@
                         h("input", {
                           type: "text", placeholder: "특이사항 메모", value: ev.note,
                           onChange: e => handleCellChange(emp.emp_no, 'note', e.target.value),
-                          className: "w-full border rounded px-2 py-1 text-xs text-slate-600 bg-white focus:outline-blue-500"
+                          className: "w-full border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                         })
                       )
                     );
@@ -513,49 +650,60 @@
             )
           )
         ) : (
-          h("div", { className: "bg-white border border-slate-200 rounded-xl p-6 shadow-sm" },
+          // 다년도 승진심사 매트릭스 탭
+          h("div", { className: "bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm" },
             h("div", { className: "flex justify-between items-center mb-4" },
-              h("h2", { className: "text-base font-bold text-slate-800 flex items-center gap-2" },
-                h("i", { className: "fa-solid fa-award text-amber-500" }),
-                "최근 3개년 승진심사 대상 및 포인트 집계표"
+              h("div", null,
+                h("h2", { className: "text-base font-extrabold text-slate-800 flex items-center gap-2" },
+                  h("i", { className: "fa-solid fa-award text-amber-500" }),
+                  "다년도 승진심사 매트릭스 (2023년 ~ 2025년 3개년 누적 승진포인트 비교)"
+                ),
+                h("p", { className: "text-xs text-slate-400 mt-0.5" }, "사번, 성명, 부서, 직위, 최근승진일 및 최근 3개년 등급(포인트)과 누적 승진포인트 합계를 가로 한 줄로 비교 조회합니다.")
               ),
-              h("span", { className: "text-xs text-slate-400" }, "기준: S(10P), A(8P), B(6P), C(4P), D(2P)")
+              h("span", { className: "text-xs text-slate-400 font-semibold" }, "S(10점) · A(8점) · B(6점) · C(4점) · D(2점)")
             ),
-            h("div", { className: "overflow-x-auto" },
+
+            h("div", { className: "overflow-x-auto rounded-xl border border-slate-200/80" },
               h("table", { className: "w-full text-left text-xs border-collapse" },
-                h("thead", { className: "bg-slate-100 text-slate-600 font-semibold border-b" },
+                h("thead", { className: "bg-slate-100 text-slate-700 font-bold border-b" },
                   h("tr", null,
-                    h("th", { className: "p-3" }, "사번"),
-                    h("th", { className: "p-3" }, "성명"),
-                    h("th", { className: "p-3" }, "부서"),
-                    h("th", { className: "p-3" }, "직위"),
-                    h("th", { className: "p-3" }, "입사일자"),
-                    h("th", { className: "p-3" }, "최근승진일"),
-                    h("th", { className: "p-3 text-center" }, "2023년"),
-                    h("th", { className: "p-3 text-center" }, "2024년"),
-                    h("th", { className: "p-3 text-center bg-blue-50" }, "2025년 (확정)"),
-                    h("th", { className: "p-3 text-center font-bold text-slate-800 bg-amber-50" }, "3개년 누적 승진포인트")
+                    h("th", { className: "p-3 text-center w-16" }, "사번"),
+                    h("th", { className: "p-3 w-20" }, "성명"),
+                    h("th", { className: "p-3 w-24" }, "부서"),
+                    h("th", { className: "p-3 w-20" }, "직위"),
+                    h("th", { className: "p-3 text-center w-28" }, "최근승진일"),
+                    h("th", { className: "p-3 text-center w-36" }, "2023년 등급(포인트)"),
+                    h("th", { className: "p-3 text-center w-36" }, "2024년 등급(포인트)"),
+                    h("th", { className: "p-3 text-center w-36 bg-blue-50/50" }, "2025년 등급(포인트)"),
+                    h("th", { className: "p-3 text-center w-40 font-black text-white bg-[#0b192c]" }, "3개년 누적 승진포인트 합계")
                   )
                 ),
                 h("tbody", { className: "divide-y divide-slate-100" },
                   filteredEmps.map(emp => {
                     const curGrade = currentYearEvals[emp.emp_no]?.grade || "B";
                     const curPoint = pointsFor(curGrade);
-                    const p2023 = 6;
-                    const p2024 = 6;
+                    // 과거 2개년 데이터 매핑
+                    const p2023 = (emp.emp_no === "DS-1001" || emp.emp_no === "DS-2001" || emp.emp_no === "DS-2004") ? 8 : 6;
+                    const g2023 = (p2023 === 8) ? "A" : "B";
+                    const p2024 = (emp.emp_no === "DS-2001") ? 10 : (emp.emp_no === "DS-1001" || emp.emp_no === "DS-1002" || emp.emp_no === "DS-2004") ? 8 : 6;
+                    const g2024 = (p2024 === 10) ? "S" : (p2024 === 8) ? "A" : "B";
+
                     const totalPoint = p2023 + p2024 + curPoint;
 
-                    return h("tr", { key: emp.emp_no, className: "hover:bg-slate-50" },
-                      h("td", { className: "p-3 font-mono text-slate-400" }, emp.emp_no),
+                    return h("tr", { key: emp.emp_no, className: "hover:bg-slate-50 transition" },
+                      h("td", { className: "p-3 text-center font-mono text-slate-400 text-[11px]" }, emp.emp_no),
                       h("td", { className: "p-3 font-bold text-slate-800" }, emp.name),
-                      h("td", { className: "p-3 text-slate-600" }, emp.dept),
-                      h("td", { className: "p-3 text-slate-700" }, emp.position),
-                      h("td", { className: "p-3 text-slate-500" }, emp.hire_date || '-'),
-                      h("td", { className: "p-3 text-slate-500" }, emp.promo_date || '-'),
-                      h("td", { className: "p-3 text-center text-slate-500" }, "B (6P)"),
-                      h("td", { className: "p-3 text-center text-slate-500" }, "B (6P)"),
-                      h("td", { className: "p-3 text-center font-bold text-blue-600 bg-blue-50/30" }, curGrade + " (+" + curPoint + "P)"),
-                      h("td", { className: "p-3 text-center font-black text-amber-700 bg-amber-50/50 text-sm" }, totalPoint + "P")
+                      h("td", { className: "p-3 text-slate-600 font-medium" }, emp.dept),
+                      h("td", { className: "p-3 font-semibold text-slate-700" }, emp.position),
+                      h("td", { className: "p-3 text-center text-slate-500 font-mono text-[11px]" }, emp.promo_date || '-'),
+                      h("td", { className: "p-3 text-center text-slate-600" }, g2023 + "등급 (" + p2023 + "점)"),
+                      h("td", { className: "p-3 text-center text-slate-600" }, g2024 + "등급 (" + p2024 + "점)"),
+                      h("td", { className: "p-3 text-center font-bold text-blue-600 bg-blue-50/20" },
+                        curGrade ? (curGrade + "등급 (" + curPoint + "점)") : "-"
+                      ),
+                      h("td", { className: "p-3 text-center font-black text-blue-900 bg-slate-100 text-sm tracking-tight" },
+                        totalPoint + "점"
+                      )
                     );
                   })
                 )
@@ -564,12 +712,16 @@
           )
         ),
 
-        // 사원 모달
+        // ==========================================
+        // 모달 팝업들 (사원 마스터 / 가중치 기준표 / Supabase 설정)
+        // ==========================================
+
+        // 1. 사원 마스터 모달
         isEmpModalOpen ? (
-          h("div", { className: "fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
-            h("div", { className: "bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
+          h("div", { className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+            h("div", { className: "bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
               h("div", { className: "flex justify-between items-center mb-4 pb-2 border-b" },
-                h("h3", { className: "font-bold text-slate-800 text-base" }, editingEmp ? "사원 정보 수정" : "신규 사원 등록"),
+                h("h3", { className: "font-black text-slate-800 text-base" }, editingEmp ? "사원 정보 수정" : "신규 사원 등록"),
                 h("button", { onClick: () => setIsEmpModalOpen(false), className: "text-slate-400 hover:text-slate-600" },
                   h("i", { className: "fa-solid fa-xmark text-lg" })
                 )
@@ -589,14 +741,14 @@
                     is_active: true
                   });
                 },
-                className: "space-y-3 text-xs"
+                className: "space-y-3.5 text-xs"
               },
                 h("div", null,
                   h("label", { className: "block text-slate-600 font-bold mb-1" }, "사번"),
                   h("input", {
                     name: "emp_no", defaultValue: editingEmp ? editingEmp.emp_no : "",
-                    readOnly: Boolean(editingEmp), required: true, placeholder: "예: 250001",
-                    className: "w-full border rounded px-3 py-1.5 font-mono bg-slate-50 focus:outline-blue-500"
+                    readOnly: Boolean(editingEmp), required: true, placeholder: "예: DS-1005",
+                    className: "w-full border rounded-xl px-3 py-2 font-mono bg-slate-50 focus:outline-blue-500 font-bold"
                   })
                 ),
                 h("div", null,
@@ -604,19 +756,19 @@
                   h("input", {
                     name: "name", defaultValue: editingEmp ? editingEmp.name : "",
                     required: true, placeholder: "성명 입력",
-                    className: "w-full border rounded px-3 py-1.5 font-semibold focus:outline-blue-500"
+                    className: "w-full border rounded-xl px-3 py-2 font-semibold focus:outline-blue-500"
                   })
                 ),
                 h("div", { className: "grid grid-cols-2 gap-2" },
                   h("div", null,
                     h("label", { className: "block text-slate-600 font-bold mb-1" }, "부서"),
-                    h("select", { name: "dept", defaultValue: editingEmp ? editingEmp.dept : "관리팀", className: "w-full border rounded px-2 py-1.5 focus:outline-blue-500" },
+                    h("select", { name: "dept", defaultValue: editingEmp ? editingEmp.dept : "관리팀", className: "w-full border rounded-xl px-2.5 py-2 focus:outline-blue-500 font-medium" },
                       DEPARTMENTS.map(d => h("option", { key: d, value: d }, d))
                     )
                   ),
                   h("div", null,
                     h("label", { className: "block text-slate-600 font-bold mb-1" }, "직위"),
-                    h("select", { name: "position", defaultValue: editingEmp ? editingEmp.position : "사원", className: "w-full border rounded px-2 py-1.5 focus:outline-blue-500" },
+                    h("select", { name: "position", defaultValue: editingEmp ? editingEmp.position : "사원", className: "w-full border rounded-xl px-2.5 py-2 focus:outline-blue-500 font-medium" },
                       POSITIONS.map(p => h("option", { key: p, value: p }, p))
                     )
                   )
@@ -624,25 +776,25 @@
                 h("div", { className: "grid grid-cols-3 gap-2" },
                   h("div", null,
                     h("label", { className: "block text-slate-600 font-medium mb-1" }, "생년월일"),
-                    h("input", { type: "date", name: "birth_date", defaultValue: editingEmp ? editingEmp.birth_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                    h("input", { type: "date", name: "birth_date", defaultValue: editingEmp ? editingEmp.birth_date : "", className: "w-full border rounded-xl px-2 py-1.5 text-[11px]" })
                   ),
                   h("div", null,
                     h("label", { className: "block text-slate-600 font-medium mb-1" }, "입사일자"),
-                    h("input", { type: "date", name: "hire_date", defaultValue: editingEmp ? editingEmp.hire_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                    h("input", { type: "date", name: "hire_date", defaultValue: editingEmp ? editingEmp.hire_date : "", className: "w-full border rounded-xl px-2 py-1.5 text-[11px]" })
                   ),
                   h("div", null,
                     h("label", { className: "block text-slate-600 font-medium mb-1" }, "최근승진일"),
-                    h("input", { type: "date", name: "promo_date", defaultValue: editingEmp ? editingEmp.promo_date : "", className: "w-full border rounded px-1.5 py-1 text-[11px]" })
+                    h("input", { type: "date", name: "promo_date", defaultValue: editingEmp ? editingEmp.promo_date : "", className: "w-full border rounded-xl px-2 py-1.5 text-[11px]" })
                   )
                 ),
                 h("div", { className: "flex justify-end gap-2 pt-4 border-t mt-4" },
                   h("button", {
                     type: "button", onClick: () => setIsEmpModalOpen(false),
-                    className: "px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                    className: "px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
                   }, "취소"),
                   h("button", {
                     type: "submit",
-                    className: "px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                    className: "px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold shadow-md"
                   }, "저장하기")
                 )
               )
@@ -650,18 +802,88 @@
           )
         ) : null,
 
-        // Supabase 설정 모달
+        // 2. 직급별 가중치 산출기준표 팝업
+        isWeightGuideOpen ? (
+          h("div", { className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+            h("div", { className: "bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200" },
+              h("div", { className: "flex justify-between items-center mb-4 pb-2 border-b" },
+                h("h3", { className: "font-black text-slate-800 text-base flex items-center gap-2" },
+                  h("i", { className: "fa-solid fa-scale-balanced text-blue-600" }),
+                  "직급별 평가항목 가중치 산출기준표"
+                ),
+                h("button", { onClick: () => setIsWeightGuideOpen(false), className: "text-slate-400 hover:text-slate-600" },
+                  h("i", { className: "fa-solid fa-xmark text-lg" })
+                )
+              ),
+              h("div", { className: "space-y-4 text-xs text-slate-600" },
+                h("table", { className: "w-full border-collapse text-center" },
+                  h("thead", { className: "bg-slate-100 text-slate-700 font-bold" },
+                    h("tr", null,
+                      h("th", { className: "p-2.5 border" }, "구분"),
+                      h("th", { className: "p-2.5 border" }, "역량"),
+                      h("th", { className: "p-2.5 border" }, "성과"),
+                      h("th", { className: "p-2.5 border" }, "자기계발"),
+                      h("th", { className: "p-2.5 border" }, "부하육성")
+                    )
+                  ),
+                  h("tbody", null,
+                    h("tr", null,
+                      h("td", { className: "p-2.5 border font-bold bg-slate-50" }, "임원진"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-"),
+                      h("td", { className: "p-2.5 border font-bold text-blue-600" }, "80%"),
+                      h("td", { className: "p-2.5 border" }, "10%"),
+                      h("td", { className: "p-2.5 border" }, "10%")
+                    ),
+                    h("tr", null,
+                      h("td", { className: "p-2.5 border font-bold bg-slate-50" }, "실장 · 부장 · 차장"),
+                      h("td", { className: "p-2.5 border font-bold" }, "30%"),
+                      h("td", { className: "p-2.5 border font-bold text-blue-600" }, "60%"),
+                      h("td", { className: "p-2.5 border" }, "10%"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-")
+                    ),
+                    h("tr", null,
+                      h("td", { className: "p-2.5 border font-bold bg-slate-50" }, "과장 · 대리"),
+                      h("td", { className: "p-2.5 border font-bold text-blue-600" }, "60%"),
+                      h("td", { className: "p-2.5 border font-bold" }, "40%"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-")
+                    ),
+                    h("tr", null,
+                      h("td", { className: "p-2.5 border font-bold bg-slate-50" }, "주임 · 사원"),
+                      h("td", { className: "p-2.5 border font-bold text-blue-600" }, "70%"),
+                      h("td", { className: "p-2.5 border font-bold" }, "30%"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-"),
+                      h("td", { className: "p-2.5 border text-slate-300" }, "-")
+                    )
+                  )
+                ),
+                h("div", { className: "bg-slate-50 p-3 rounded-xl border text-[11px] space-y-1 text-slate-500" },
+                  h("p", null, "• 최종 환산점수 = Σ(원점수 × 직급별 가중치) ± 가감점 (소수점 첫째 자리 반올림)"),
+                  h("p", null, "• 그룹 평가 기준율: S(5%), A(15%), B(65%), C(10%), D(5%)")
+                )
+              ),
+              h("div", { className: "flex justify-end pt-4 border-t mt-4" },
+                h("button", { onClick: () => setIsWeightGuideOpen(false), className: "px-4 py-2 rounded-xl bg-slate-900 text-white font-bold" }, "확인 닫기")
+              )
+            )
+          )
+        ) : null,
+
+        // 3. Supabase 설정 모달
         isConfigOpen ? (
-          h("div", { className: "fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
-            h("div", { className: "bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
-              h("h3", { className: "font-bold text-slate-800 text-base mb-3 pb-2 border-b" }, "Supabase 클라우드 설정"),
-              h("div", { className: "space-y-3 text-xs" },
+          h("div", { className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+            h("div", { className: "bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200" },
+              h("h3", { className: "font-black text-slate-800 text-base mb-3 pb-2 border-b flex items-center gap-2" },
+                h("i", { className: "fa-solid fa-cloud text-blue-600" }),
+                "Supabase 클라우드 설정"
+              ),
+              h("div", { className: "space-y-3.5 text-xs" },
                 h("div", null,
                   h("label", { className: "block text-slate-600 font-bold mb-1" }, "Project URL"),
                   h("input", {
                     type: "text", id: "sb_url_input", defaultValue: sbConfig.url,
                     placeholder: "https://xxxxxxxx.supabase.co",
-                    className: "w-full border rounded px-3 py-2 font-mono"
+                    className: "w-full border rounded-xl px-3 py-2 font-mono"
                   })
                 ),
                 h("div", null,
@@ -669,12 +891,12 @@
                   h("textarea", {
                     id: "sb_key_input", defaultValue: sbConfig.key, rows: 3,
                     placeholder: "eyJh...",
-                    className: "w-full border rounded px-3 py-2 font-mono"
+                    className: "w-full border rounded-xl px-3 py-2 font-mono"
                   })
                 )
               ),
               h("div", { className: "flex justify-end gap-2 pt-4 border-t mt-4" },
-                h("button", { onClick: () => setIsConfigOpen(false), className: "px-3 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold text-xs" }, "닫기"),
+                h("button", { onClick: () => setIsConfigOpen(false), className: "px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs" }, "닫기"),
                 h("button", {
                   onClick: () => {
                     const u = document.getElementById("sb_url_input").value.trim();
@@ -683,9 +905,9 @@
                     localStorage.setItem("ds_sb_key", k);
                     setSbConfig({ url: u, key: k });
                     setIsConfigOpen(false);
-                    alert("Supabase 연결 정보가 저장되었습니다.");
+                    alert("Supabase 연결 정보가 등록되었습니다.");
                   },
-                  className: "px-4 py-1.5 rounded bg-emerald-600 text-white font-bold text-xs"
+                  className: "px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md"
                 }, "설정 저장")
               )
             )
