@@ -23,27 +23,29 @@ export default function App() {
   const [snapshotStore, setSnapshotStore] = useState<SnapshotStore>({});
   const [evalStore, setEvalStore] = useState<EvalStore>({});
 
-  // DB에서 전체 연도 데이터 일괄 로드 (어느 자리에서든 100% 실시간 DB 원장 동기화)
   const loadAllDataFromDB = async () => {
     const sb = getSupabase();
     if (!sb) {
       setIsLoading(false);
+      alert("⚠️ Supabase DB 연결 정보가 설정되지 않았습니다. 우측 상단의 [DB 설정]을 확인해주세요.");
       return;
     }
 
     try {
       setIsLoading(true);
 
-      // 1. 전체 사원 스냅샷 조회
+      // 1. 사원 스냅샷 전체 조회
       const { data: empData, error: empErr } = await sb
         .from("employee_snapshots")
         .select("*")
         .order("emp_no");
 
-      if (!empErr && empData) {
+      if (empErr) {
+        alert("❌ 사원 데이터 조회 실패 (DB 차단):\n" + empErr.message + "\n(코드: " + empErr.code + ")");
+      } else if (empData) {
         const groupedSnap: SnapshotStore = {};
         empData.forEach((e: any) => {
-          const y = e.snapshot_year;
+          const y = Number(e.snapshot_year);
           if (!groupedSnap[y]) groupedSnap[y] = [];
           groupedSnap[y].push({
             ...e,
@@ -54,15 +56,17 @@ export default function App() {
         localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(groupedSnap));
       }
 
-      // 2. 전체 평가 데이터 조회
+      // 2. 평가 데이터 전체 조회
       const { data: evalData, error: evalErr } = await sb
         .from("annual_evaluations")
         .select("*");
 
-      if (!evalErr && evalData) {
+      if (evalErr) {
+        alert("❌ 평가 데이터 조회 실패 (DB 차단):\n" + evalErr.message);
+      } else if (evalData) {
         const groupedEval: EvalStore = {};
         evalData.forEach((r: any) => {
-          const y = r.eval_year;
+          const y = Number(r.eval_year);
           if (!groupedEval[y]) groupedEval[y] = {};
           groupedEval[y][r.emp_no] = {
             competency: r.comp_score !== null ? r.comp_score : "",
@@ -78,8 +82,8 @@ export default function App() {
         setEvalStore(groupedEval);
         localStorage.setItem("ds_eval_store_v10", JSON.stringify(groupedEval));
       }
-    } catch (err) {
-      console.error("데이터 로드 실패:", err);
+    } catch (err: any) {
+      alert("통신 오류 발생: " + (err.message || err));
     } finally {
       setIsLoading(false);
     }
