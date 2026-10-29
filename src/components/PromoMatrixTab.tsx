@@ -8,13 +8,14 @@ interface Props {
   evalStore: EvalStore;
 }
 
-// 표준 직급별 최소 체류 연한 (연 단위)
+// 직급별 최소 체류 연한 (연 단위)
 const PROMO_REQ_YEARS: Record<string, number> = {
   "사원": 3,  // 사원 -> 대리 3년
   "대리": 4,  // 대리 -> 과장 4년
   "과장": 4,  // 과장 -> 차장 4년
   "차장": 5,  // 차장 -> 부장 5년
-  "부장": 0   // 임원 심사
+  "부장": 5,  // 부장 5년
+  "실장": 5   // 실장 5년
 };
 
 export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) => {
@@ -27,20 +28,14 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
   // 최근 승진연도 기산 및 체류연수 계산 함수
   const getTenureInfo = (emp: EmployeeSnapshot) => {
     const baseDateStr = emp.promo_date || emp.hire_date;
-    if (!baseDateStr) return { years: 0, status: '미상' };
+    if (!baseDateStr) return { years: 0, status: '미상', isMet: false };
 
     const baseYear = parseInt(baseDateStr.split('-')[0], 10);
-    if (isNaN(baseYear)) return { years: 0, status: '미상' };
+    if (isNaN(baseYear)) return { years: 0, status: '미상', isMet: false };
 
-    // 현재 평가연도 기준 체류연수 (예: 2024년 승진 후 2026년 평가면 2년차)
+    // 현재 평가연도 기준 체류연수
     const tenureYears = year - baseYear;
-    const reqYears = PROMO_REQ_YEARS[emp.position] || 0;
-
-    if (emp.position === "부장" || emp.position === "실장") {
-      return { years: tenureYears, status: '임원심사', isMet: true };
-    }
-
-    if (reqYears === 0) return { years: tenureYears, status: '해당없음', isMet: true };
+    const reqYears = PROMO_REQ_YEARS[emp.position] || 5;
 
     const isMet = tenureYears >= reqYears;
     return {
@@ -116,13 +111,9 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
                       {emp.promo_date || '-'}
                     </td>
 
-                    {/* 직급 체류연한 심사 배지 */}
+                    {/* 직급 체류연한 심사 배지 (전 직급 동일 적용) */}
                     <td className="p-2 text-center whitespace-nowrap">
-                      {emp.position === "부장" || emp.position === "실장" ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                          임원 심사 대상
-                        </span>
-                      ) : tenure.isMet ? (
+                      {tenure.isMet ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
                           <i className="fa-solid fa-circle-check mr-1 text-[9px]" />
                           {tenure.status}
