@@ -46,3 +46,4 @@ export interface EvaluationItem {
 export type SnapshotStore = Record<number, EmployeeSnapshot[]>;
 export type EvalStore = Record<number, Record<string, EvaluationItem>>;
 export type LockStore = Record<number, boolean>;
+export type DeptSubmissionStore = Record<number, Record<string, { isSubmitted: boolean; submittedBy?: string; submittedAt?: string }>>;
