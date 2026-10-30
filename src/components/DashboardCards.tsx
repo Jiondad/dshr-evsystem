@@ -54,8 +54,8 @@ export const DashboardCards: React.FC<Props> = ({
         const recCount = recommendedCount(totalCount, limit.targetPct);
         const roundedCount = Math.round(recCount);
         
-        // 현재 인원이 권장 인원보다 많으면 한도초과, 아니면 적정 표시
-        const isOver = count > recCount;
+        // 반올림된 정수 인원(roundedCount)을 기준으로 한도 초과 여부 판단
+        const isOver = count > roundedCount;
 
         return (
           <div key={g} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
