@@ -52,14 +52,20 @@ export const DashboardCards: React.FC<Props> = ({
         const pct = getPct(count);
         const limit = GRADE_LIMITS[g];
         const recCount = recommendedCount(totalCount, limit.targetPct);
+        const roundedCount = Math.round(recCount);
+        
+        // 현재 인원이 권장 인원보다 많으면 한도초과, 아니면 적정 표시
+        const isOver = count > recCount;
 
         return (
           <div key={g} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-extrabold text-slate-700">{g}등급 (기준)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-600">
-                  기준 {limit.targetPct}%
+                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                  isOver ? 'bg-rose-100 text-rose-700' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                  {isOver ? '한도초과' : '적정'}
                 </span>
               </div>
               <div className="text-2xl font-black tracking-tight text-slate-900 flex items-baseline gap-1 mt-1">
@@ -69,7 +75,9 @@ export const DashboardCards: React.FC<Props> = ({
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex justify-between items-center">
               <span>그룹기준 인원:</span>
-              <span className="font-bold font-mono text-slate-700">{recCount}명</span>
+              <span className="font-bold font-mono text-slate-700">
+                {recCount}명 <span className="text-slate-400 font-normal">({roundedCount}명)</span>
+              </span>
             </div>
           </div>
         );
