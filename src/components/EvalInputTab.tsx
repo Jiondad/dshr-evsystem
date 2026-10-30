@@ -77,15 +77,14 @@ export const EvalInputTab: React.FC<Props> = ({
                 {isDeptLeader ? '부서장 1차 평가 입력' : '최종 대표이사 평가'}
               </th>
 
-              {/* 승진포인트: 너비를 w-20(80px)으로 타이트하게 고정 */}
               {!isDeptLeader && (
                 <th className="p-2 text-center w-20 whitespace-nowrap bg-slate-200/80 text-slate-900 font-extrabold" rowSpan={2}>
                   승진포인트
                 </th>
               )}
 
-              {/* 특이사항/비고: 고정 너비(w-44)를 빼서 테이블 남는 공간을 최대로 차지하도록 설정 */}
-              <th className="p-2 whitespace-nowrap min-w-[200px]" rowSpan={2}>
+              {/* 특이사항/비고: 기존보다 30% 축소 */}
+              <th className="p-2 whitespace-nowrap min-w-[140px]" rowSpan={2}>
                 {isDeptLeader ? '부서장 의견/비고' : '특이사항/비고'}
               </th>
             </tr>
@@ -106,7 +105,7 @@ export const EvalInputTab: React.FC<Props> = ({
               <th className="p-1 text-center w-14 whitespace-nowrap">성과</th>
               <th className="p-1 text-center w-14 whitespace-nowrap">자기계발</th>
               <th className="p-1 text-center w-14 whitespace-nowrap">부하육성</th>
-              <th className="p-1 text-center w-24 whitespace-nowrap">가감점/사유</th>
+              <th className="p-1 text-center w-32 whitespace-nowrap">가감점/사유</th>
               <th className="p-1 text-center w-16 bg-blue-50 text-blue-900 font-black whitespace-nowrap">환산점수</th>
               <th className="p-1 text-center w-20 bg-amber-50 text-amber-900 font-black whitespace-nowrap">최종등급</th>
             </tr>
@@ -256,6 +255,7 @@ export const EvalInputTab: React.FC<Props> = ({
                           ) : <span className="text-slate-300">-</span>}
                         </td>
 
+                        {/* 가감점/사유: 사유 입력란 폭을 대폭 확장 */}
                         <td className="p-1">
                           <div className="flex items-center gap-1">
                             <input
@@ -267,10 +267,10 @@ export const EvalInputTab: React.FC<Props> = ({
                             />
                             <input
                               type="text" disabled={isInputDisabled}
-                              placeholder="사유"
+                              placeholder="사유 입력"
                               value={ev.adjustReason || ""}
                               onChange={e => onCellChange(emp.emp_no, "adjustReason", e.target.value)}
-                              className="w-12 px-1 py-1 border border-slate-200 rounded text-[11px] disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none"
+                              className="w-20 px-1.5 py-1 border border-slate-200 rounded text-[11px] disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none"
                             />
                           </div>
                         </td>
@@ -298,21 +298,20 @@ export const EvalInputTab: React.FC<Props> = ({
                           </select>
                         </td>
 
-                        {/* 승진포인트: w-20 고정 너비로 낭비 제거 */}
                         {!isDeptLeader && (
                           <td className="p-1 text-center font-extrabold text-slate-800 whitespace-nowrap w-20">
                             {pts > 0 ? `${pts}점` : '-'}
                           </td>
                         )}
 
-                        {/* 특이사항/비고: 남은 공간 전체를 자연스럽게 채우도록 w-full 적용 */}
+                        {/* 특이사항/비고: 30% 축소 적용 */}
                         <td className="p-1">
                           <input
                             type="text" disabled={isInputDisabled}
                             placeholder={isDeptLeader ? "부서장 평가의견 작성" : "특이사항 메모"}
                             value={ev.note || ""}
                             onChange={e => onCellChange(emp.emp_no, "note", e.target.value)}
-                            className="w-full min-w-[200px] px-3 py-1.5 border border-slate-200 rounded text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none transition"
+                            className="w-full min-w-[140px] px-2 py-1.5 border border-slate-200 rounded text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none transition"
                           />
                         </td>
                       </>
