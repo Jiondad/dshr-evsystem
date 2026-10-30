@@ -2,7 +2,6 @@ import { Grade, WeightItem, EmployeeSnapshot, EvaluationItem } from '../types/hr
 
 export const DEPARTMENTS = ["관리팀", "영업팀", "생산팀"];
 
-// 직위 서열: 반장을 사원 위(주임 다음)로 배치
 export const POSITIONS = [
   "회장", "부회장", "사장", "부사장", "전무", "상무", "이사",
   "실장", "부장", "차장", "과장", "대리", "주임", "반장", "사원"
@@ -10,34 +9,16 @@ export const POSITIONS = [
 
 export const GRADES: Grade[] = ["S", "A", "B", "C", "D"];
 
-// 정렬용 인덱스 매핑 (숫자가 작을수록 상위 직급)
 export const POSITION_ORDER: Record<string, number> = {
-  "회장": 1,
-  "부회장": 2,
-  "사장": 3,
-  "부사장": 4,
-  "전무": 5,
-  "상무": 6,
-  "이사": 7,
-  "실장": 8,
-  "부장": 9,
-  "차장": 10,
-  "과장": 11,
-  "대리": 12,
-  "주임": 13,
-  "반장": 14, // 주임 아래, 사원 위
-  "사원": 15
+  "회장": 1, "부회장": 2, "사장": 3, "부사장": 4, "전무": 5,
+  "상무": 6, "이사": 7, "실장": 8, "부장": 9, "차장": 10,
+  "과장": 11, "대리": 12, "주임": 13, "반장": 14, "사원": 15
 };
 
-// 부서 정렬 순서
 export const DEPT_ORDER: Record<string, number> = {
-  "임원": 1,
-  "관리팀": 2,
-  "영업팀": 3,
-  "생산팀": 4
+  "임원": 1, "관리팀": 2, "영업팀": 3, "생산팀": 4
 };
 
-// 직위별 평가 가중치 (역량 / 성과 / 자기계발 / 부하육성)
 export const POSITION_WEIGHTS: Record<string, WeightItem> = {
   "실장": { competency: 0.30, performance: 0.60, selfDev: 0.10, mentoring: 0.00 },
   "부장": { competency: 0.30, performance: 0.60, selfDev: 0.10, mentoring: 0.00 },
@@ -49,13 +30,13 @@ export const POSITION_WEIGHTS: Record<string, WeightItem> = {
   "사원": { competency: 0.70, performance: 0.30, selfDev: 0.00, mentoring: 0.00 }
 };
 
-// 등급별 권장 배분율 및 한도
+// 그룹 평가 기준 기준율 (S: 5%, A: 15%, B: 65%, C: 10%, D: 5%)
 export const GRADE_LIMITS: Record<Grade, { targetPct: number; limitPct: number }> = {
-  S: { targetPct: 5, limitPct: 10 },
-  A: { targetPct: 15, limitPct: 20 },
-  B: { targetPct: 65, limitPct: 75 },
-  C: { targetPct: 10, limitPct: 15 },
-  D: { targetPct: 5, limitPct: 10 }
+  S: { targetPct: 5, limitPct: 5 },
+  A: { targetPct: 15, limitPct: 15 },
+  B: { targetPct: 65, limitPct: 65 },
+  C: { targetPct: 10, limitPct: 10 },
+  D: { targetPct: 5, limitPct: 5 }
 };
 
 export function recommendedCount(total: number, pct: number): number {
