@@ -31,7 +31,7 @@ export const LoginView: React.FC<Props> = ({ onLogin }) => {
 
     // 2. 최종평가자 (LV.1)
     if (id === 'dssteel' && pw === 'dssteelev') {
-      onLogin({ id: 'dssteel', name: '대표이사/최종평가', role: 'LV1_EVALUATOR' });
+      onLogin({ id: 'dssteel', name: '최종평가/대표이사', role: 'LV1_EVALUATOR' });
       return;
     }
 
