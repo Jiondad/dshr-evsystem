@@ -83,8 +83,8 @@ export const EvalInputTab: React.FC<Props> = ({
                 </th>
               )}
 
-              {/* 특이사항/비고: 기존보다 30% 축소 */}
-              <th className="p-2 whitespace-nowrap min-w-[140px]" rowSpan={2}>
+              {/* 특이사항/비고: 폭을 더 컴팩트하게 줄임 */}
+              <th className="p-2 whitespace-nowrap min-w-[100px]" rowSpan={2}>
                 {isDeptLeader ? '부서장 의견/비고' : '특이사항/비고'}
               </th>
             </tr>
@@ -105,7 +105,7 @@ export const EvalInputTab: React.FC<Props> = ({
               <th className="p-1 text-center w-14 whitespace-nowrap">성과</th>
               <th className="p-1 text-center w-14 whitespace-nowrap">자기계발</th>
               <th className="p-1 text-center w-14 whitespace-nowrap">부하육성</th>
-              <th className="p-1 text-center w-32 whitespace-nowrap">가감점/사유</th>
+              <th className="p-1 text-center w-40 whitespace-nowrap">가감점/사유</th>
               <th className="p-1 text-center w-16 bg-blue-50 text-blue-900 font-black whitespace-nowrap">환산점수</th>
               <th className="p-1 text-center w-20 bg-amber-50 text-amber-900 font-black whitespace-nowrap">최종등급</th>
             </tr>
@@ -255,7 +255,7 @@ export const EvalInputTab: React.FC<Props> = ({
                           ) : <span className="text-slate-300">-</span>}
                         </td>
 
-                        {/* 가감점/사유: 사유 입력란 폭을 대폭 확장 */}
+                        {/* 가감점/사유: 사유 입력란을 넉넉하게 대폭 확장 */}
                         <td className="p-1">
                           <div className="flex items-center gap-1">
                             <input
@@ -270,7 +270,7 @@ export const EvalInputTab: React.FC<Props> = ({
                               placeholder="사유 입력"
                               value={ev.adjustReason || ""}
                               onChange={e => onCellChange(emp.emp_no, "adjustReason", e.target.value)}
-                              className="w-20 px-1.5 py-1 border border-slate-200 rounded text-[11px] disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none"
+                              className="w-32 px-1.5 py-1 border border-slate-200 rounded text-[11px] disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none"
                             />
                           </div>
                         </td>
@@ -304,14 +304,14 @@ export const EvalInputTab: React.FC<Props> = ({
                           </td>
                         )}
 
-                        {/* 특이사항/비고: 30% 축소 적용 */}
+                        {/* 특이사항/비고: 컴팩트하게 축소 */}
                         <td className="p-1">
                           <input
                             type="text" disabled={isInputDisabled}
-                            placeholder={isDeptLeader ? "부서장 평가의견 작성" : "특이사항 메모"}
+                            placeholder={isDeptLeader ? "부서장 평가의견" : "특이사항"}
                             value={ev.note || ""}
                             onChange={e => onCellChange(emp.emp_no, "note", e.target.value)}
-                            className="w-full min-w-[140px] px-2 py-1.5 border border-slate-200 rounded text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none transition"
+                            className="w-full min-w-[100px] px-2 py-1.5 border border-slate-200 rounded text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 focus:border-blue-500 focus:outline-none transition"
                           />
                         </td>
                       </>
