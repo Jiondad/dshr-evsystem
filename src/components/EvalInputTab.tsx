@@ -182,7 +182,6 @@ export const EvalInputTab: React.FC<Props> = ({
                                 <span className="text-slate-300">-</span>
                               )}
                             </td>
-                            {/* 의견 보기 버튼: 줄바꿈 절대 방지(whitespace-nowrap inline-flex) */}
                             <td className="p-1 text-center bg-purple-50/40 border-r border-purple-200 whitespace-nowrap">
                               {deptEv.note && deptEv.note.trim() !== "" ? (
                                 <button
@@ -323,37 +322,38 @@ export const EvalInputTab: React.FC<Props> = ({
         </table>
       </div>
 
+      {/* 1차 부서장 평가 의견 팝업창 (글자 크기 50% 확대 적용) */}
       {modalData && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div className="flex items-center gap-3">
+                <span className="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg">
                   <i className="fa-solid fa-comment-dots" />
                 </span>
                 <div>
-                  <h3 className="font-extrabold text-slate-800 text-sm">
+                  <h3 className="font-extrabold text-slate-800 text-xl">
                     {modalData.dept} {modalData.name} 사원
                   </h3>
-                  <p className="text-[11px] text-purple-600 font-semibold">1차 부서장 종합 평가 의견</p>
+                  <p className="text-sm text-purple-600 font-semibold mt-0.5">1차 부서장 종합 평가 의견</p>
                 </div>
               </div>
               <button
                 onClick={() => setModalData(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
               >
-                <i className="fa-solid fa-xmark text-sm" />
+                <i className="fa-solid fa-xmark text-lg" />
               </button>
             </div>
 
-            <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 text-slate-800 text-xs leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+            <div className="p-5 bg-purple-50/50 rounded-xl border border-purple-100 text-slate-800 text-lg font-medium leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
               {modalData.note}
             </div>
 
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => setModalData(null)}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow transition"
+                className="px-6 py-2 text-base font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow transition"
               >
                 닫기
               </button>
