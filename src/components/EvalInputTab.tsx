@@ -83,7 +83,6 @@ export const EvalInputTab: React.FC<Props> = ({
                 </th>
               )}
 
-              {/* 특이사항/비고: 폭을 더 컴팩트하게 줄임 */}
               <th className="p-2 whitespace-nowrap min-w-[100px]" rowSpan={2}>
                 {isDeptLeader ? '부서장 의견/비고' : '특이사항/비고'}
               </th>
@@ -97,7 +96,7 @@ export const EvalInputTab: React.FC<Props> = ({
                   <th className="p-1 text-center bg-purple-50 text-purple-900 w-11 whitespace-nowrap font-bold">육성</th>
                   <th className="p-1 text-center bg-purple-50 text-purple-950 font-black w-14 whitespace-nowrap border-l border-purple-200">환산점</th>
                   <th className="p-1 text-center bg-purple-50 text-purple-950 font-black w-12 whitespace-nowrap">등급</th>
-                  <th className="p-1 text-center bg-purple-50 text-purple-900 border-r border-purple-200 w-14 whitespace-nowrap font-bold">의견</th>
+                  <th className="p-1 text-center bg-purple-50 text-purple-900 border-r border-purple-200 w-16 whitespace-nowrap font-bold">의견</th>
                 </>
               )}
 
@@ -174,7 +173,7 @@ export const EvalInputTab: React.FC<Props> = ({
                             <td className="p-1 text-center bg-purple-100/50 font-black text-purple-950 border-l border-purple-200 font-mono">
                               {deptScore > 0 ? deptScore.toFixed(1) : '-'}
                             </td>
-                            <td className="p-1 text-center bg-purple-100/50">
+                            <td className="p-1 text-center bg-purple-100/50 whitespace-nowrap">
                               {deptGrade ? (
                                 <span className="px-1.5 py-0.5 rounded font-black text-[11px] bg-purple-200 text-purple-900">
                                   {deptGrade}
@@ -183,14 +182,16 @@ export const EvalInputTab: React.FC<Props> = ({
                                 <span className="text-slate-300">-</span>
                               )}
                             </td>
-                            <td className="p-1 text-center bg-purple-50/40 border-r border-purple-200">
+                            {/* 의견 보기 버튼: 줄바꿈 절대 방지(whitespace-nowrap inline-flex) */}
+                            <td className="p-1 text-center bg-purple-50/40 border-r border-purple-200 whitespace-nowrap">
                               {deptEv.note && deptEv.note.trim() !== "" ? (
                                 <button
                                   onClick={() => setModalData({ name: emp.name, dept: emp.dept, note: deptEv.note })}
-                                  className="px-2 py-0.5 text-[11px] font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 rounded border border-purple-300 transition"
+                                  className="px-2 py-0.5 text-[11px] font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 rounded border border-purple-300 transition whitespace-nowrap inline-flex items-center justify-center gap-1"
                                   title="부서장 의견 전체보기"
                                 >
-                                  <i className="fa-regular fa-comment-dots mr-0.5" /> 보기
+                                  <i className="fa-regular fa-comment-dots" />
+                                  <span>보기</span>
                                 </button>
                               ) : (
                                 <span className="text-slate-300">-</span>
@@ -255,7 +256,6 @@ export const EvalInputTab: React.FC<Props> = ({
                           ) : <span className="text-slate-300">-</span>}
                         </td>
 
-                        {/* 가감점/사유: 사유 입력란을 넉넉하게 대폭 확장 */}
                         <td className="p-1">
                           <div className="flex items-center gap-1">
                             <input
@@ -304,7 +304,6 @@ export const EvalInputTab: React.FC<Props> = ({
                           </td>
                         )}
 
-                        {/* 특이사항/비고: 컴팩트하게 축소 */}
                         <td className="p-1">
                           <input
                             type="text" disabled={isInputDisabled}
