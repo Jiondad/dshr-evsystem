@@ -18,7 +18,7 @@ export const EvalInputTab: React.FC<Props> = ({
   year, dept, userRole, employees, evaluations, deptEvaluations, isLocked, isDeptSubmitted, onCellChange
 }) => {
   const isDeptLeader = userRole === 'LV2_DEPT_LEADER';
-  const [modalData, setModalData] = useState<{ name: string; dept: string; note: string } | null>(null);
+  const [modalData, setModalData] = useState<{ name: string; dept: string; position: string; note: string } | null>(null);
 
   const isInputDisabled = isDeptLeader ? (isLocked || isDeptSubmitted) : isLocked;
 
@@ -185,7 +185,7 @@ export const EvalInputTab: React.FC<Props> = ({
                             <td className="p-1 text-center bg-purple-50/40 border-r border-purple-200 whitespace-nowrap">
                               {deptEv.note && deptEv.note.trim() !== "" ? (
                                 <button
-                                  onClick={() => setModalData({ name: emp.name, dept: emp.dept, note: deptEv.note })}
+                                  onClick={() => setModalData({ name: emp.name, dept: emp.dept, position: emp.position, note: deptEv.note })}
                                   className="px-2 py-0.5 text-[11px] font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 rounded border border-purple-300 transition whitespace-nowrap inline-flex items-center justify-center gap-1"
                                   title="부서장 의견 전체보기"
                                 >
@@ -322,7 +322,7 @@ export const EvalInputTab: React.FC<Props> = ({
         </table>
       </div>
 
-      {/* 1차 부서장 평가 의견 팝업창 (글자 크기 50% 확대 적용) */}
+      {/* 1차 부서장 평가 의견 팝업창 (실제 직위 표시 적용) */}
       {modalData && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
@@ -333,7 +333,7 @@ export const EvalInputTab: React.FC<Props> = ({
                 </span>
                 <div>
                   <h3 className="font-extrabold text-slate-800 text-xl">
-                    {modalData.dept} {modalData.name} 사원
+                    {modalData.dept} {modalData.name} {modalData.position}
                   </h3>
                   <p className="text-sm text-purple-600 font-semibold mt-0.5">1차 부서장 종합 평가 의견</p>
                 </div>
