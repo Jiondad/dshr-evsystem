@@ -4,6 +4,7 @@ import { pointsFor, sortByDeptAndPosition } from '../lib/constants';
 
 interface Props {
   year: number;
+  dept?: string;
   employees: EmployeeSnapshot[];
   evalStore: EvalStore;
 }
@@ -19,7 +20,7 @@ const PROMO_REQ_YEARS: Record<string, number> = {
   "실장": 5
 };
 
-export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) => {
+export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalStore }) => {
   const sortedEmps = useMemo(() => {
     return [...employees].sort(sortByDeptAndPosition);
   }, [employees]);
@@ -51,6 +52,11 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, employees, evalStore }) 
           <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
             <i className="fa-solid fa-award text-blue-600" />
             {year}년도 승진심사 대상 및 최근 3개년({years[0]} ~ {years[2]}) 승진포인트 집계표
+            {dept && dept !== "전체" && (
+              <span className="ml-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {dept} ({sortedEmps.length}명)
+              </span>
+            )}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             ※ 대성스틸 승진 규정: 승진 이전 연도까지의 평가는 포인트가 리셋되며, 승진 당해 연도 평가부터 새 직급의 포인트로 정상 누적 기산됩니다.
