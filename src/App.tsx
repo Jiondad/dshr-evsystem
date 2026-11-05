@@ -282,6 +282,14 @@ export default function App() {
     });
   }, [currentYearEmployees, dept, searchQuery, includeRetired, isDeptLeader, currentUser]);
 
+  // 승진심사 매트릭스 표시용 사원 목록 (부서장 로그인 시 부서장 본인 140004는 제외하고 부서원만 표시)
+  const promoTargetEmps = useMemo(() => {
+    if (isDeptLeader) {
+      return filteredEmps.filter(e => e.emp_no !== '140004');
+    }
+    return filteredEmps;
+  }, [filteredEmps, isDeptLeader]);
+
   const currentYearEvals = isDeptLeader
     ? (deptEvalStore[year] || {})
     : (evalStore[year] || {});
@@ -639,13 +647,13 @@ export default function App() {
               </span>
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {isDeptLeader ? `소속 [${currentUser.dept}] 1차 직무/역량 평가 수행` : '10개년 평가 원본 보존 · 사원 스냅샷 마스터 · 과거 3개년 승진 포인트 연동'}
+              {isDeptLeader ? `소속 [${currentUser.dept}] 1차 직무/역량 평가 및 부서 승진심사 현황 열람` : '10개년 평가 원본 보존 · 사원 스냅샷 마스터 · 과거 3개년 승진 포인트 연동'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 상단 단일 연도 선택 컨트롤러 (모든 탭 공통) */}
+          {/* 상단 단일 연도 선택 컨트롤러 */}
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button
               onClick={() => handleYearChange(year - 1)}
@@ -678,14 +686,14 @@ export default function App() {
               {isDeptLeader ? '1차 부서평가 입력' : '평가 결과 입력'}
             </button>
 
-            {!isDeptLeader && (
-              <button
-                onClick={() => setTab("promo")}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${tab === 'promo' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
-              >
-                <i className="fa-solid fa-award text-[11px]" /> 승진심사 매트릭스(3개년)
-              </button>
-            )}
+            {/* 부서장(LV.2) 포함 모든 권한에서 승진심사 매트릭스 탭 노출 */}
+            <button
+              onClick={() => setTab("promo")}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${tab === 'promo' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              <i className="fa-solid fa-award text-[11px]" />
+              {isDeptLeader ? `승진심사 매트릭스(${currentUser.dept})` : '승진심사 매트릭스(3개년)'}
+            </button>
 
             {isAdmin && (
               <button
@@ -849,7 +857,7 @@ export default function App() {
               </div>
 
               <div className="no-print">
-                <DashboardCards year={year} dept={dept} totalCount={totalCount} gradedTotal={gradedTotal} counts={counts} getPct={getPct} />
+                <DashboardCards year={year} dept={isDeptLeader ? (currentUser.dept || '') : dept} totalCount={totalCount} gradedTotal={gradedTotal} counts={counts} getPct={getPct} />
               </div>
 
               <EvalInputTab
@@ -865,10 +873,12 @@ export default function App() {
             </div>
           )}
 
-          {tab === "promo" && !isDeptLeader && (
+          {/* 승진심사 매트릭스: 부서장도 자기 부서원에 한해 열람 가능 */}
+          {tab === "promo" && (
             <PromoMatrixTab
               year={year}
-              employees={filteredEmps}
+              dept={isDeptLeader ? (currentUser.dept || '') : dept}
+              employees={promoTargetEmps}
               evalStore={evalStore}
             />
           )}
