@@ -9,30 +9,34 @@ interface Props {
   evalStore: EvalStore;
 }
 
-// 대성스틸 직급별 표준체류년한 (현재 직위 기준)
-// - 대리 ~ 실장: 4년
-// - 사원 ~ 계장(반장/주임 포함): 3년
+// 대성스틸 최신 직급별 표준체류년한 (현재 직위 기준)
+// - 부장 ~ 실장: 체류년한 없음 (0년으로 판정)
+// - 과장 ~ 차장: 4년
+// - 주임 ~ 대리: 3년
+// - 사원 (기본): 3년
 const PROMO_REQ_YEARS: Record<string, number> = {
   "사원": 3,
   "반장": 3,
   "주임": 3,
   "계장": 3,
-  "대리": 4,
+  "대리": 3,
   "과장": 4,
   "차장": 4,
-  "부장": 4,
-  "실장": 4
+  "부장": 0,
+  "실장": 0
 };
 
-// 대성스틸 직급별 승진 기준 포인트 (현재 직위 기준)
-// - 대리 ~ 실장: 22P
-// - 사원 ~ 계장(반장/주임 포함): 20P
+// 대성스틸 최신 직급별 승진 기준 포인트 (현재 직위 기준)
+// - 부장 ~ 실장: 22P
+// - 과장 ~ 차장: 22P
+// - 주임 ~ 대리: 20P
+// - 사원: 20P
 const PROMO_REQ_POINTS: Record<string, number> = {
   "사원": 20,
   "반장": 20,
   "주임": 20,
   "계장": 20,
-  "대리": 22,
+  "대리": 20,
   "과장": 22,
   "차장": 22,
   "부장": 22,
@@ -47,7 +51,13 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
   const years = [year - 2, year - 1, year];
 
   const getTenureInfo = (emp: EmployeeSnapshot) => {
-    const reqYears = PROMO_REQ_YEARS[emp.position] || 4;
+    const reqYears = PROMO_REQ_YEARS[emp.position] ?? 4;
+    
+    // 부장~실장은 체류년한 없음
+    if (reqYears === 0) {
+      return { years: 0, reqYears: 0, status: '체류년한 없음', isMet: true };
+    }
+
     const baseDateStr = emp.promo_date || emp.hire_date;
     if (!baseDateStr) return { years: 0, reqYears, status: '미상', isMet: false };
 
@@ -79,7 +89,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
             )}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            ※ 직급별 승진기준: [사원~계장(반장·주임)] 체류 3년 · 20P / [대리~실장] 체류 4년 · 22P (승진 이전 연도 평가는 리셋)
+            ※ 직급별 승진기준: [사원~대리·주임] 체류 3년·20P / [과장~차장] 체류 4년·22P / [부장~실장] 체류년한 없음·22P (승진 이전 연도 평가는 리셋)
           </p>
         </div>
 
@@ -150,7 +160,11 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
                     </td>
 
                     <td className="p-2 text-center whitespace-nowrap">
-                      {tenure.isMet ? (
+                      {tenure.reqYears === 0 ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                          대상 아님 (체류년한 없음)
+                        </span>
+                      ) : tenure.isMet ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
                           <i className="fa-solid fa-circle-check mr-1 text-[9px]" />
                           {tenure.status}
