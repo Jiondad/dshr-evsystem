@@ -282,7 +282,6 @@ export default function App() {
     });
   }, [currentYearEmployees, dept, searchQuery, includeRetired, isDeptLeader, currentUser]);
 
-  // 승진심사 매트릭스 표시용 사원 목록 (부서장 로그인 시 부서장 본인 140004는 제외하고 부서원만 표시)
   const promoTargetEmps = useMemo(() => {
     if (isDeptLeader) {
       return filteredEmps.filter(e => e.emp_no !== '140004');
@@ -311,19 +310,28 @@ export default function App() {
     return stats;
   }, [currentYearEmployees, deptEvalStore, submissionStore, year]);
 
+  // 대시보드 등급 집계 시 수동 등급 또는 환산점수 기반 자동 등급을 모두 정확히 반영
   const counts = useMemo(() => {
     const c: Record<Grade, number> = { S: 0, A: 0, B: 0, C: 0, D: 0 };
     filteredEmps.forEach(e => {
-      const g = currentYearEvals[e.emp_no]?.grade;
+      if (isDeptLeader && e.emp_no === '140004') return;
+      const ev = currentYearEvals[e.emp_no];
+      if (!ev) return;
+      const score = finalScore(e.position, ev);
+      const autoGrade = gradeFromScore(score);
+      const g = (ev.grade || autoGrade) as Grade;
       if (g && c[g] !== undefined) c[g]++;
     });
     return c;
-  }, [filteredEmps, currentYearEvals]);
+  }, [filteredEmps, currentYearEvals, isDeptLeader]);
 
-  const totalCount = filteredEmps.length;
+  const totalCount = isDeptLeader
+    ? filteredEmps.filter(e => e.emp_no !== '140004').length
+    : filteredEmps.length;
   const gradedTotal = (['S', 'A', 'B', 'C', 'D'] as Grade[]).reduce((s, g) => s + counts[g], 0);
   const getPct = (c: number) => (totalCount > 0 ? Math.round((c / totalCount) * 1000) / 10 : 0);
 
+  // 점수 입력/수정 시 환산점수에 맞춰 등급이 즉시 재계산되도록 개선
   const handleEvalCellChange = (empNo: string, field: string, val: any) => {
     if (isCurrentYearLocked) {
       alert("해당 연도의 평가는 확정 및 마감되어 수정할 수 없습니다.");
@@ -334,11 +342,23 @@ export default function App() {
       return;
     }
 
+    const empObj = currentYearEmployees.find(e => e.emp_no === empNo);
+    const pos = empObj?.position || "사원";
+    const scoreFields = ["competency", "performance", "selfDev", "mentoring", "adjust"];
+
     if (isDeptLeader) {
       setDeptEvalStore(prev => {
         const yData = prev[year] || {};
         const empEval = yData[empNo] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
-        const updated = { ...prev, [year]: { ...yData, [empNo]: { ...empEval, [field]: val } } };
+        const nextEval = { ...empEval, [field]: val };
+
+        // 점수가 바뀌면 바뀐 환산점수 기준으로 등급을 자동 갱신
+        if (scoreFields.includes(field)) {
+          const newScore = finalScore(pos, nextEval);
+          nextEval.grade = newScore > 0 ? gradeFromScore(newScore) : "";
+        }
+
+        const updated = { ...prev, [year]: { ...yData, [empNo]: nextEval } };
         localStorage.setItem("ds_dept_eval_store_v1", JSON.stringify(updated));
         return updated;
       });
@@ -346,7 +366,15 @@ export default function App() {
       setEvalStore(prev => {
         const yData = prev[year] || {};
         const empEval = yData[empNo] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
-        const updated = { ...prev, [year]: { ...yData, [empNo]: { ...empEval, [field]: val } } };
+        const nextEval = { ...empEval, [field]: val };
+
+        // 점수가 바뀌면 바뀐 환산점수 기준으로 등급을 자동 갱신
+        if (scoreFields.includes(field)) {
+          const newScore = finalScore(pos, nextEval);
+          nextEval.grade = newScore > 0 ? gradeFromScore(newScore) : "";
+        }
+
+        const updated = { ...prev, [year]: { ...yData, [empNo]: nextEval } };
         localStorage.setItem("ds_eval_store_v10", JSON.stringify(updated));
         return updated;
       });
@@ -653,7 +681,6 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 상단 단일 연도 선택 컨트롤러 */}
           <div className="flex items-center bg-[#1e293b] rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button
               onClick={() => handleYearChange(year - 1)}
@@ -686,7 +713,6 @@ export default function App() {
               {isDeptLeader ? '1차 부서평가 입력' : '평가 결과 입력'}
             </button>
 
-            {/* 부서장(LV.2) 포함 모든 권한에서 승진심사 매트릭스 탭 노출 */}
             <button
               onClick={() => setTab("promo")}
               className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${tab === 'promo' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
@@ -873,7 +899,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 승진심사 매트릭스: 부서장도 자기 부서원에 한해 열람 가능 */}
           {tab === "promo" && (
             <PromoMatrixTab
               year={year}
