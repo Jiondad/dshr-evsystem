@@ -9,15 +9,34 @@ interface Props {
   evalStore: EvalStore;
 }
 
+// 대성스틸 직급별 표준체류년한 (현재 직위 기준)
+// - 대리 ~ 실장: 4년
+// - 사원 ~ 계장(반장/주임 포함): 3년
 const PROMO_REQ_YEARS: Record<string, number> = {
   "사원": 3,
   "반장": 3,
   "주임": 3,
+  "계장": 3,
   "대리": 4,
   "과장": 4,
-  "차장": 5,
-  "부장": 5,
-  "실장": 5
+  "차장": 4,
+  "부장": 4,
+  "실장": 4
+};
+
+// 대성스틸 직급별 승진 기준 포인트 (현재 직위 기준)
+// - 대리 ~ 실장: 22P
+// - 사원 ~ 계장(반장/주임 포함): 20P
+const PROMO_REQ_POINTS: Record<string, number> = {
+  "사원": 20,
+  "반장": 20,
+  "주임": 20,
+  "계장": 20,
+  "대리": 22,
+  "과장": 22,
+  "차장": 22,
+  "부장": 22,
+  "실장": 22
 };
 
 export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalStore }) => {
@@ -28,18 +47,19 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
   const years = [year - 2, year - 1, year];
 
   const getTenureInfo = (emp: EmployeeSnapshot) => {
+    const reqYears = PROMO_REQ_YEARS[emp.position] || 4;
     const baseDateStr = emp.promo_date || emp.hire_date;
-    if (!baseDateStr) return { years: 0, status: '미상', isMet: false };
+    if (!baseDateStr) return { years: 0, reqYears, status: '미상', isMet: false };
 
     const baseYear = parseInt(baseDateStr.split('-')[0], 10);
-    if (isNaN(baseYear)) return { years: 0, status: '미상', isMet: false };
+    if (isNaN(baseYear)) return { years: 0, reqYears, status: '미상', isMet: false };
 
     const tenureYears = year - baseYear;
-    const reqYears = PROMO_REQ_YEARS[emp.position] || 5;
-
     const isMet = tenureYears >= reqYears;
+
     return {
       years: tenureYears,
+      reqYears,
       status: isMet ? `연한 충족 (${tenureYears}년차)` : `연한 미달 (${tenureYears}/${reqYears}년)`,
       isMet
     };
@@ -59,7 +79,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
             )}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            ※ 대성스틸 승진 규정: 승진 이전 연도까지의 평가는 포인트가 리셋되며, 승진 당해 연도 평가부터 새 직급의 포인트로 정상 누적 기산됩니다.
+            ※ 직급별 승진기준: [사원~계장(반장·주임)] 체류 3년 · 20P / [대리~실장] 체류 4년 · 22P (승진 이전 연도 평가는 리셋)
           </p>
         </div>
 
@@ -88,7 +108,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
                   {y}년 등급(포인트)
                 </th>
               ))}
-              <th className="p-2.5 text-center w-28 bg-slate-900 text-white font-extrabold whitespace-nowrap">
+              <th className="p-2.5 text-center w-36 bg-slate-900 text-white font-extrabold whitespace-nowrap">
                 승진 누적 포인트 합계
               </th>
             </tr>
@@ -96,7 +116,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
           <tbody className="divide-y divide-slate-100">
             {sortedEmps.length === 0 ? (
               <tr>
-                <td colSpan={6 + years.length} className="py-12 text-center text-slate-400 font-medium">
+                <td colSpan={7 + years.length} className="py-12 text-center text-slate-400 font-medium">
                   {year}년도 승진심사 대상 사원 데이터가 없습니다.
                 </td>
               </tr>
@@ -104,8 +124,20 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
               sortedEmps.map(emp => {
                 const promoYear = emp.promo_date ? parseInt(emp.promo_date.split('-')[0], 10) : 0;
                 const tenure = getTenureInfo(emp);
+                const reqPoints = PROMO_REQ_POINTS[emp.position] || 22;
 
                 let totalPoints = 0;
+                years.forEach(y => {
+                  const ev = evalStore[y]?.[emp.emp_no];
+                  const grade = ev?.grade;
+                  const rawPts = pointsFor(grade);
+                  const isReset = promoYear > 0 && y < promoYear;
+                  if (!isReset && rawPts > 0) {
+                    totalPoints += rawPts;
+                  }
+                });
+
+                const isPointsMet = totalPoints >= reqPoints;
 
                 return (
                   <tr key={emp.emp_no} className="hover:bg-slate-50/80 transition">
@@ -135,11 +167,7 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
                       const ev = evalStore[y]?.[emp.emp_no];
                       const grade = ev?.grade;
                       const rawPts = pointsFor(grade);
-
                       const isReset = promoYear > 0 && y < promoYear;
-                      if (!isReset && rawPts > 0) {
-                        totalPoints += rawPts;
-                      }
 
                       return (
                         <td key={y} className="p-2 text-center whitespace-nowrap">
@@ -160,8 +188,20 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
                       );
                     })}
 
-                    <td className="p-2 text-center font-black text-sm text-blue-900 bg-slate-50 whitespace-nowrap">
-                      {totalPoints > 0 ? `${totalPoints}점` : '0점'}
+                    <td className="p-2 text-center bg-slate-50 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className={`font-black text-sm ${isPointsMet ? 'text-emerald-700' : 'text-blue-900'}`}>
+                          {totalPoints}점
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          / {reqPoints}P
+                        </span>
+                        {isPointsMet && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            충족
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
