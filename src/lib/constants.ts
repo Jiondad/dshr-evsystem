@@ -30,7 +30,6 @@ export const POSITION_WEIGHTS: Record<string, WeightItem> = {
   "사원": { competency: 0.70, performance: 0.30, selfDev: 0.00, mentoring: 0.00 }
 };
 
-// 그룹 평가 기준 기준율 (S: 5%, A: 15%, B: 65%, C: 10%, D: 5%)
 export const GRADE_LIMITS: Record<Grade, { targetPct: number; limitPct: number }> = {
   S: { targetPct: 5, limitPct: 5 },
   A: { targetPct: 15, limitPct: 15 },
@@ -58,13 +57,15 @@ export function pointsFor(grade?: Grade | ""): number {
   }
 }
 
+// 명확한 점수 구간 기준 판정 함수 (91점 이상 S, 81점 이상 A, 71점 이상 B, 61점 이상 C, 61점 미만 D)
 export function gradeFromScore(score: number): Grade | "" {
-  if (score >= 91) return "S";
-  if (score >= 81) return "A";
-  if (score >= 71) return "B";
-  if (score >= 61) return "C";
-  if (score > 0) return "D";
-  return "";
+  if (score <= 0) return "";
+  const rounded = Math.round(score * 10) / 10;
+  if (rounded >= 91) return "S";
+  if (rounded >= 81) return "A";
+  if (rounded >= 71) return "B";
+  if (rounded >= 61) return "C";
+  return "D";
 }
 
 export function finalScore(pos: string, ev?: EvaluationItem): number {
