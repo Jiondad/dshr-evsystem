@@ -122,13 +122,13 @@ export const EvalInputTab: React.FC<Props> = ({
                 const deptEv = deptEvaluations[emp.emp_no] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
                 const deptScore = finalScore(emp.position, deptEv);
                 const deptAutoGrade = gradeFromScore(deptScore);
-                const deptGrade = deptEv.grade || (deptScore > 0 ? deptAutoGrade : '');
+                const deptGrade = deptAutoGrade; // 환산점수 기준 등급 우선 적용
 
                 const ev = evaluations[emp.emp_no] || { competency: "", performance: "", selfDev: "", mentoring: "", adjust: "", adjustReason: "", grade: "", note: "" };
                 const w = weightsFor(emp.position);
                 const score = finalScore(emp.position, ev);
                 const autoGrade = gradeFromScore(score);
-                const displayGrade = ev.grade || autoGrade;
+                const displayGrade = autoGrade; // 환산점수 기준 등급 우선 적용
                 const pts = pointsFor(displayGrade);
 
                 return (
@@ -279,22 +279,16 @@ export const EvalInputTab: React.FC<Props> = ({
                         </td>
 
                         <td className="p-1 text-center bg-amber-50/40 whitespace-nowrap">
-                          <select
-                            disabled={isInputDisabled}
-                            value={displayGrade}
-                            onChange={e => onCellChange(emp.emp_no, "grade", e.target.value)}
-                            className={`px-2 py-1 rounded font-extrabold text-xs border ${
-                              displayGrade === 'S' ? 'bg-blue-600 text-white border-blue-600' :
-                              displayGrade === 'A' ? 'bg-emerald-600 text-white border-emerald-600' :
-                              displayGrade === 'B' ? 'bg-slate-700 text-white border-slate-700' :
-                              displayGrade === 'C' ? 'bg-amber-500 text-white border-amber-500' :
-                              displayGrade === 'D' ? 'bg-rose-600 text-white border-rose-600' :
-                              'bg-white text-slate-400 border-slate-200'
-                            }`}
-                          >
-                            <option value="">선택</option>
-                            {GRADES.map(g => <option key={g} value={g}>{g}등급</option>)}
-                          </select>
+                          <span className={`px-2.5 py-1 rounded font-extrabold text-xs inline-block text-center ${
+                            displayGrade === 'S' ? 'bg-blue-600 text-white' :
+                            displayGrade === 'A' ? 'bg-emerald-600 text-white' :
+                            displayGrade === 'B' ? 'bg-slate-700 text-white' :
+                            displayGrade === 'C' ? 'bg-amber-500 text-white' :
+                            displayGrade === 'D' ? 'bg-rose-600 text-white' :
+                            'bg-slate-200 text-slate-500'
+                          }`}>
+                            {displayGrade ? `${displayGrade}등급` : '선택'}
+                          </span>
                         </td>
 
                         {!isDeptLeader && (
@@ -322,7 +316,6 @@ export const EvalInputTab: React.FC<Props> = ({
         </table>
       </div>
 
-      {/* 1차 부서장 평가 의견 팝업창 (실제 직위 표시 적용) */}
       {modalData && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
