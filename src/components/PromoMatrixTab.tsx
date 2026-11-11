@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { EmployeeSnapshot, EvalStore } from '../types/hr';
 import { pointsFor, sortByDeptAndPosition } from '../lib/constants';
 
@@ -9,11 +9,6 @@ interface Props {
   evalStore: EvalStore;
 }
 
-// 대성스틸 최신 직급별 표준체류년한 (현재 직위 기준)
-// - 부장 ~ 실장: 체류년한 없음 (0년으로 판정)
-// - 과장 ~ 차장: 4년
-// - 주임 ~ 대리: 3년
-// - 사원 (기본): 3년
 const PROMO_REQ_YEARS: Record<string, number> = {
   "사원": 3,
   "반장": 3,
@@ -26,11 +21,6 @@ const PROMO_REQ_YEARS: Record<string, number> = {
   "실장": 0
 };
 
-// 대성스틸 최신 직급별 승진 기준 포인트 (현재 직위 기준)
-// - 부장 ~ 실장: 22P
-// - 과장 ~ 차장: 22P
-// - 주임 ~ 대리: 20P
-// - 사원: 20P
 const PROMO_REQ_POINTS: Record<string, number> = {
   "사원": 20,
   "반장": 20,
@@ -44,6 +34,8 @@ const PROMO_REQ_POINTS: Record<string, number> = {
 };
 
 export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalStore }) => {
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+
   const sortedEmps = useMemo(() => {
     return [...employees].sort(sortByDeptAndPosition);
   }, [employees]);
@@ -53,7 +45,6 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
   const getTenureInfo = (emp: EmployeeSnapshot) => {
     const reqYears = PROMO_REQ_YEARS[emp.position] ?? 4;
     
-    // 부장~실장은 체류년한 없음
     if (reqYears === 0) {
       return { years: 0, reqYears: 0, status: '체류년한 없음', isMet: true };
     }
@@ -88,9 +79,17 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
               </span>
             )}
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            ※ 직급별 승진기준: [사원~대리·주임] 체류 3년·20P / [과장~차장] 체류 4년·22P / [부장~실장] 체류년한 없음·22P (승진 이전 연도 평가는 리셋)
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-slate-400">
+              ※ 직급별 승진기준: [사원~대리·주임] 체류 3년·20P / [과장~차장] 체류 4년·22P / [부장~실장] 체류년한 없음·22P (승진 이전 연도 평가는 리셋)
+            </p>
+            <button
+              onClick={() => setIsGuideOpen(true)}
+              className="px-2.5 py-0.5 text-[11px] font-bold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition inline-flex items-center gap-1 shadow-sm whitespace-nowrap"
+            >
+              <i className="fa-solid fa-circle-info text-blue-600" /> 체류연한 규정 보기
+            </button>
+          </div>
         </div>
 
         <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-2">
@@ -224,6 +223,78 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
           </tbody>
         </table>
       </div>
+
+      {/* 체류연한 및 승진포인트 규정 안내 팝업창 */}
+      {isGuideOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base">
+                  <i className="fa-solid fa-clipboard-list" />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">대성스틸 직급별 승진 기준 규정</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">표준 체류년한 및 기준 승진포인트 안내</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsGuideOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <i className="fa-solid fa-xmark text-base" />
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 text-slate-700 font-bold border-b">
+                  <tr>
+                    <th className="p-2.5 text-center">구분 (현재 직위 기준)</th>
+                    <th className="p-2.5 text-center">표준체류년한</th>
+                    <th className="p-2.5 text-center">승진포인트</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-center font-medium text-slate-700">
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-2.5 font-bold">부장 ~ 실장</td>
+                    <td className="p-2.5 text-slate-400">-</td>
+                    <td className="p-2.5 font-extrabold text-blue-700">22P</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-2.5 font-bold">과장 ~ 차장</td>
+                    <td className="p-2.5">4년</td>
+                    <td className="p-2.5 font-extrabold text-blue-700">22P</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-2.5 font-bold">주임 ~ 대리</td>
+                    <td className="p-2.5">3년</td>
+                    <td className="p-2.5 font-extrabold text-blue-700">20P</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-2.5 font-bold">사원 (반장·계장 포함)</td>
+                    <td className="p-2.5">3년</td>
+                    <td className="p-2.5 font-extrabold text-blue-700">20P</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              ※ 승진 이전 연도까지의 평가는 포인트가 리셋되며, 승진 당해 연도 평가부터 새 직급의 포인트로 정상 누적 기산됩니다.
+            </p>
+
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setIsGuideOpen(false)}
+                className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow transition"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
