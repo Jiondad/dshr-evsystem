@@ -55,7 +55,9 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
     const baseYear = parseInt(baseDateStr.split('-')[0], 10);
     if (isNaN(baseYear)) return { years: 0, reqYears, status: '미상', isMet: false };
 
-    const tenureYears = year - baseYear;
+    // 평가 기준 연도의 다음 연도 1월 1일 기준 (예: 2026년 기준 -> 2027년 1월 1일 - 승진연도)
+    const targetCalcYear = year + 1;
+    const tenureYears = targetCalcYear - baseYear;
     const isMet = tenureYears >= reqYears;
 
     return {
@@ -224,7 +226,6 @@ export const PromoMatrixTab: React.FC<Props> = ({ year, dept, employees, evalSto
         </table>
       </div>
 
-      {/* 체류연한 및 승진포인트 규정 안내 팝업창 */}
       {isGuideOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
