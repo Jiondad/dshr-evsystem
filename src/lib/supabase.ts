@@ -74,3 +74,8 @@ export function getSupabase() {
     }
   };
 }
+
+// 기존 Modals.tsx 빌드 호환용 보조 함수
+export function getSupabaseUrl() { return getGasUrl(); }
+export function getSupabaseAnonKey() { return "GOOGLE_SHEETS_MODE"; }
+export function saveSupabaseConfig(url: string, _key: string) { setGasUrl(url); }
