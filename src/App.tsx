@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { EmployeeSnapshot, EvalStore, SnapshotStore, Grade, AuthUser, LockStore, DeptSubmissionStore } from './types/hr';
 import { DEPARTMENTS, finalScore, pointsFor, sortByDeptAndPosition, gradeFromScore } from './lib/constants';
-import { getSupabase } from './lib/supabase';
+import { getSupabase, fetchAllFromSheets } from './lib/supabase';
 import { DashboardCards } from './components/DashboardCards';
 import { EvalInputTab } from './components/EvalInputTab';
 import { PromoMatrixTab } from './components/PromoMatrixTab';
@@ -65,36 +65,33 @@ export default function App() {
         setIsLoading(true);
       }
 
-      const [empRes, evalRes, deptEvalRes, lockRes, subRes] = await Promise.all([
-        sb.from("employee_snapshots").select("*").order("emp_no"),
-        sb.from("annual_evaluations").select("*"),
-        sb.from("dept_evaluations").select("*"),
-        sb.from("evaluation_locks").select("*"),
-        sb.from("dept_submissions").select("*")
-      ]);
+      const allData = await fetchAllFromSheets();
+      if (!allData) return;
 
-      if (empRes.data) {
+      if (allData.employee_snapshots) {
         const groupedSnap: SnapshotStore = {};
-        empRes.data.forEach((e: any) => {
+        allData.employee_snapshots.forEach((e: any) => {
           const y = Number(e.snapshot_year);
+          const empNo = String(e.emp_no).padStart(6, '0');
           if (!groupedSnap[y]) groupedSnap[y] = [];
-          groupedSnap[y].push({ ...e, _rowId: `${e.snapshot_year}_${e.emp_no}` });
+          groupedSnap[y].push({ ...e, snapshot_year: y, emp_no: empNo, _rowId: `${y}_${empNo}` });
         });
         setSnapshotStore(groupedSnap);
         localStorage.setItem("ds_snapshot_store_v1", JSON.stringify(groupedSnap));
       }
 
-      if (evalRes.data) {
+      if (allData.annual_evaluations) {
         const groupedEval: EvalStore = {};
-        evalRes.data.forEach((r: any) => {
+        allData.annual_evaluations.forEach((r: any) => {
           const y = Number(r.eval_year);
+          const empNo = String(r.emp_no).padStart(6, '0');
           if (!groupedEval[y]) groupedEval[y] = {};
-          groupedEval[y][r.emp_no] = {
-            competency: r.comp_score !== null ? r.comp_score : "",
-            performance: r.perf_score !== null ? r.perf_score : "",
-            selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
-            mentoring: r.leadership_score !== null ? r.leadership_score : "",
-            adjust: r.adj_score !== null ? r.adj_score : "",
+          groupedEval[y][empNo] = {
+            competency: r.comp_score !== null && r.comp_score !== "" ? Number(r.comp_score) : "",
+            performance: r.perf_score !== null && r.perf_score !== "" ? Number(r.perf_score) : "",
+            selfDev: r.self_dev_score !== null && r.self_dev_score !== "" ? Number(r.self_dev_score) : "",
+            mentoring: r.leadership_score !== null && r.leadership_score !== "" ? Number(r.leadership_score) : "",
+            adjust: r.adj_score !== null && r.adj_score !== "" ? Number(r.adj_score) : "",
             adjustReason: r.adj_reason || "",
             grade: r.final_grade || "",
             note: r.remarks || ""
@@ -104,17 +101,18 @@ export default function App() {
         localStorage.setItem("ds_eval_store_v10", JSON.stringify(groupedEval));
       }
 
-      if (deptEvalRes.data) {
+      if (allData.dept_evaluations) {
         const groupedDeptEval: EvalStore = {};
-        deptEvalRes.data.forEach((r: any) => {
+        allData.dept_evaluations.forEach((r: any) => {
           const y = Number(r.eval_year);
+          const empNo = String(r.emp_no).padStart(6, '0');
           if (!groupedDeptEval[y]) groupedDeptEval[y] = {};
-          groupedDeptEval[y][r.emp_no] = {
-            competency: r.comp_score !== null ? r.comp_score : "",
-            performance: r.perf_score !== null ? r.perf_score : "",
-            selfDev: r.self_dev_score !== null ? r.self_dev_score : "",
-            mentoring: r.leadership_score !== null ? r.leadership_score : "",
-            adjust: r.adj_score !== null ? r.adj_score : "",
+          groupedDeptEval[y][empNo] = {
+            competency: r.comp_score !== null && r.comp_score !== "" ? Number(r.comp_score) : "",
+            performance: r.perf_score !== null && r.perf_score !== "" ? Number(r.perf_score) : "",
+            selfDev: r.self_dev_score !== null && r.self_dev_score !== "" ? Number(r.self_dev_score) : "",
+            mentoring: r.leadership_score !== null && r.leadership_score !== "" ? Number(r.leadership_score) : "",
+            adjust: r.adj_score !== null && r.adj_score !== "" ? Number(r.adj_score) : "",
             adjustReason: r.adj_reason || "",
             grade: r.final_grade || "",
             note: r.remarks || ""
@@ -124,21 +122,21 @@ export default function App() {
         localStorage.setItem("ds_dept_eval_store_v1", JSON.stringify(groupedDeptEval));
       }
 
-      if (lockRes.data) {
+      if (allData.evaluation_locks) {
         const locks: LockStore = {};
-        lockRes.data.forEach((l: any) => {
-          locks[Number(l.eval_year)] = !!l.is_locked;
+        allData.evaluation_locks.forEach((l: any) => {
+          locks[Number(l.eval_year)] = (l.is_locked === true || String(l.is_locked).toUpperCase() === "TRUE");
         });
         setLockStore(locks);
       }
 
-      if (subRes.data) {
+      if (allData.dept_submissions) {
         const subs: DeptSubmissionStore = {};
-        subRes.data.forEach((s: any) => {
+        allData.dept_submissions.forEach((s: any) => {
           const y = Number(s.eval_year);
           if (!subs[y]) subs[y] = {};
           subs[y][s.dept] = {
-            isSubmitted: !!s.is_submitted,
+            isSubmitted: (s.is_submitted === true || String(s.is_submitted).toUpperCase() === "TRUE"),
             submittedBy: s.submitted_by,
             submittedAt: s.submitted_at
           };
@@ -454,39 +452,13 @@ export default function App() {
   const handleSaveSnapshotMaster = async () => {
     const sb = getSupabase();
     if (!sb) {
-      alert("Supabase 설정이 없어 브라우저에만 저장되었습니다.");
+      alert("Google Sheets 연결 설정이 없어 브라우저에만 저장되었습니다.");
       return;
     }
     const emptyNo = currentYearEmployees.some(e => !e.emp_no || e.emp_no.trim() === "");
     if (emptyNo) {
       alert("사번이 입력되지 않은 행이 있습니다. 모든 사원의 사번을 입력한 후 저장해주세요.");
       return;
-    }
-
-    const currentEmpNos = currentYearEmployees.map(e => e.emp_no.trim());
-
-    const { data: dbExisting, error: fetchError } = await sb
-      .from("employee_snapshots")
-      .select("emp_no")
-      .eq("snapshot_year", year);
-
-    if (fetchError) {
-      alert("기존 데이터 확인 실패: " + fetchError.message);
-      return;
-    }
-
-    if (dbExisting && dbExisting.length > 0) {
-      const removedEmpNos = dbExisting
-        .map((r: any) => r.emp_no)
-        .filter((dbNo: string) => !currentEmpNos.includes(dbNo));
-
-      if (removedEmpNos.length > 0) {
-        await sb
-          .from("employee_snapshots")
-          .delete()
-          .eq("snapshot_year", year)
-          .in("emp_no", removedEmpNos);
-      }
     }
 
     const cleanData = currentYearEmployees.map(e => ({
@@ -509,7 +481,7 @@ export default function App() {
     if (upsertError) {
       alert("사원마스터 저장 실패: " + upsertError.message);
     } else {
-      alert(`${year}년도 사원마스터(${cleanData.length}명)가 동기화되어 영구 보관되었습니다.`);
+      alert(`${year}년도 사원마스터(${cleanData.length}명)가 구글 시트에 동기화되어 영구 보관되었습니다.`);
       await loadAllDataFromDB();
     }
   };
@@ -526,7 +498,7 @@ export default function App() {
 
     const sb = getSupabase();
     if (!sb) {
-      alert("Supabase 설정이 없어 브라우저에만 저장되었습니다.");
+      alert("Google Sheets 연결 설정이 없어 브라우저에만 저장되었습니다.");
       return;
     }
 
@@ -584,7 +556,7 @@ export default function App() {
       const { error } = await sb.from("annual_evaluations").upsert(records, { onConflict: "eval_year,emp_no" });
       if (error) alert("최종 평가 저장 실패: " + error.message);
       else {
-        alert(`${year}년도 최종 인사평가 원장(${records.length}명)이 Supabase에 안전하게 보관되었습니다.`);
+        alert(`${year}년도 최종 인사평가 원장(${records.length}명)이 구글 시트에 안전하게 보관되었습니다.`);
         await loadAllDataFromDB();
       }
     }
@@ -752,7 +724,7 @@ export default function App() {
       {isLoading ? (
         <div className="bg-white rounded-2xl p-16 text-center border border-slate-200/80 shadow-sm">
           <i className="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600 mb-3" />
-          <p className="text-sm font-bold text-slate-700">Supabase DB에서 데이터를 동기화하는 중입니다...</p>
+          <p className="text-sm font-bold text-slate-700">Google Sheets에서 데이터를 동기화하는 중입니다...</p>
         </div>
       ) : (
         <>
